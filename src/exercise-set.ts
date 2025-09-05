@@ -39,6 +39,7 @@ export class ExerciseSetBuilder {
         ...this._params,
         weight: weightResult.value,
         isBarbell: weightResult.isBarbell,
+        reps: undefined,
       };
     }
 
@@ -50,6 +51,8 @@ export class ExerciseSetBuilder {
     if (reps) {
       return new ExerciseSetBuilder({
         ...this._params,
+        weight: this._params.weight || 1,
+        isBarbell: this._params.isBarbell || false,
         reps,
       });
     }
