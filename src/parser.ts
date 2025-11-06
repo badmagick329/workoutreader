@@ -23,7 +23,7 @@ const splitLinesByDate = (text: string) => {
         chunks.set(date, currentChunk);
       }
       date = line;
-      currentChunk.length = 0;
+      currentChunk = [];
     }
   }
   if (currentChunk.length > 0 && date !== "") {
