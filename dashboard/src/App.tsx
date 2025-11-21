@@ -24,6 +24,9 @@ import {
   getMaxWeightProgression,
   getPRs,
   getExerciseSummary,
+  isBodyweightExercise,
+  getMaxRepsProgression,
+  getTotalRepsProgression,
 } from "../../src/analysis";
 import type { Exercise } from "../../src/exercise";
 import "./index.css";
@@ -35,7 +38,9 @@ type ExerciseData = Exercise;
 
 function ExplorerView({ exercises }: { exercises: ExerciseData[] }) {
   const [selectedExercise, setSelectedExercise] = useState<string>("");
-  const [metric, setMetric] = useState<"1rm" | "weight" | "volume">("1rm");
+  const [metric, setMetric] = useState<"1rm" | "weight" | "volume" | "reps">(
+    "1rm"
+  );
 
   // Get unique exercise names
   const exerciseNames = useMemo(() => {
@@ -53,6 +58,25 @@ function ExplorerView({ exercises }: { exercises: ExerciseData[] }) {
     }
   }, [exerciseNames, selectedExercise]);
 
+  // Determine if bodyweight
+  const isBodyweight = useMemo(() => {
+    if (!selectedExercise) return false;
+    return isBodyweightExercise(exercises, selectedExercise);
+  }, [exercises, selectedExercise]);
+
+  // Reset metric when exercise changes (if incompatible)
+  useEffect(() => {
+    if (isBodyweight) {
+      if (metric === "1rm" || metric === "weight") {
+        setMetric("reps");
+      }
+    } else {
+      if (metric === "reps") {
+        setMetric("1rm");
+      }
+    }
+  }, [isBodyweight, metric]);
+
   // Calculate Chart Data
   const chartData = useMemo(() => {
     if (!selectedExercise) return [];
@@ -67,20 +91,35 @@ function ExplorerView({ exercises }: { exercises: ExerciseData[] }) {
         date: d.date,
         value: d.weight,
       }));
+    } else if (metric === "reps") {
+      return getMaxRepsProgression(exercises, selectedExercise).map((d) => ({
+        date: d.date,
+        value: d.reps,
+      }));
     } else {
       // Volume
-      const history = getExerciseHistory(exercises, selectedExercise);
-      // Group by date
-      const volMap = new Map<string, number>();
-      history.forEach((ex) => {
-        const vol = ex.weight * ex.reps;
-        volMap.set(ex.date, (volMap.get(ex.date) || 0) + vol);
-      });
-      return Array.from(volMap.entries())
-        .map(([date, value]) => ({ date, value }))
-        .sort((a, b) => a.date.localeCompare(b.date));
+      if (isBodyweight) {
+        // Total Reps for bodyweight
+        return getTotalRepsProgression(exercises, selectedExercise).map(
+          (d) => ({
+            date: d.date,
+            value: d.totalReps,
+          })
+        );
+      } else {
+        // Tonnage for weighted
+        const history = getExerciseHistory(exercises, selectedExercise);
+        const volMap = new Map<string, number>();
+        history.forEach((ex) => {
+          const vol = ex.weight * ex.reps;
+          volMap.set(ex.date, (volMap.get(ex.date) || 0) + vol);
+        });
+        return Array.from(volMap.entries())
+          .map(([date, value]) => ({ date, value }))
+          .sort((a, b) => a.date.localeCompare(b.date));
+      }
     }
-  }, [exercises, selectedExercise, metric]);
+  }, [exercises, selectedExercise, metric, isBodyweight]);
 
   // Calculate Stats
   const stats = useMemo(() => {
@@ -88,12 +127,13 @@ function ExplorerView({ exercises }: { exercises: ExerciseData[] }) {
     const prs = getPRs(exercises, selectedExercise);
     const history = getExerciseHistory(exercises, selectedExercise);
 
-    // Find heaviest session
+    // Find heaviest session / max volume session
     let maxVol = 0;
     let heaviestSessionDate = "";
     const volMap = new Map<string, number>();
+
     history.forEach((ex) => {
-      const vol = ex.weight * ex.reps;
+      const vol = isBodyweight ? ex.reps : ex.weight * ex.reps;
       const newVol = (volMap.get(ex.date) || 0) + vol;
       volMap.set(ex.date, newVol);
       if (newVol > maxVol) {
@@ -105,11 +145,12 @@ function ExplorerView({ exercises }: { exercises: ExerciseData[] }) {
     return {
       prWeight: prs.maxWeight.weight,
       pr1rm: Math.round(prs.max1RM.estimated1RM),
+      prReps: prs.maxReps.reps,
       totalSets: history.length,
       heaviestSession: heaviestSessionDate,
       maxVolume: maxVol,
     };
-  }, [exercises, selectedExercise]);
+  }, [exercises, selectedExercise, isBodyweight]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -135,23 +176,48 @@ function ExplorerView({ exercises }: { exercises: ExerciseData[] }) {
               </Select>
             </div>
             <div className="flex items-center gap-2 bg-zinc-950 p-1 rounded-lg border border-zinc-800">
-              {(["1rm", "weight", "volume"] as const).map((m) => (
-                <button
-                  key={m}
-                  onClick={() => setMetric(m)}
-                  className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                    metric === m
-                      ? "bg-zinc-800 text-zinc-100"
-                      : "text-zinc-500 hover:text-zinc-300"
-                  }`}
-                >
-                  {m === "1rm"
-                    ? "Est. 1RM"
-                    : m === "weight"
-                    ? "Max Weight"
-                    : "Volume"}
-                </button>
-              ))}
+              {isBodyweight ? (
+                <>
+                  <button
+                    onClick={() => setMetric("reps")}
+                    className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                      metric === "reps"
+                        ? "bg-zinc-800 text-zinc-100"
+                        : "text-zinc-500 hover:text-zinc-300"
+                    }`}
+                  >
+                    Max Reps
+                  </button>
+                  <button
+                    onClick={() => setMetric("volume")}
+                    className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                      metric === "volume"
+                        ? "bg-zinc-800 text-zinc-100"
+                        : "text-zinc-500 hover:text-zinc-300"
+                    }`}
+                  >
+                    Total Reps
+                  </button>
+                </>
+              ) : (
+                (["1rm", "weight", "volume"] as const).map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => setMetric(m)}
+                    className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                      metric === m
+                        ? "bg-zinc-800 text-zinc-100"
+                        : "text-zinc-500 hover:text-zinc-300"
+                    }`}
+                  >
+                    {m === "1rm"
+                      ? "Est. 1RM"
+                      : m === "weight"
+                      ? "Max Weight"
+                      : "Volume"}
+                  </button>
+                ))
+              )}
             </div>
           </CardHeader>
           <CardContent>
@@ -218,50 +284,94 @@ function ExplorerView({ exercises }: { exercises: ExerciseData[] }) {
 
       {/* Sidebar Stats */}
       <div className="space-y-4">
-        <Card className="bg-zinc-900 border-zinc-800">
-          <CardHeader>
-            <CardTitle className="text-zinc-400 text-sm">Current PR</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-emerald-500">
-              {stats?.prWeight}
-              <span className="text-lg text-zinc-600 ml-1">kg</span>
-            </div>
-            <p className="text-xs text-zinc-500 mt-1">Best recorded weight</p>
-          </CardContent>
-        </Card>
+        {isBodyweight ? (
+          <>
+            <Card className="bg-zinc-900 border-zinc-800">
+              <CardHeader>
+                <CardTitle className="text-zinc-400 text-sm">
+                  Best Set
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-emerald-500">
+                  {stats?.prReps}
+                  <span className="text-lg text-zinc-600 ml-1">reps</span>
+                </div>
+                <p className="text-xs text-zinc-500 mt-1">
+                  Max reps in one set
+                </p>
+              </CardContent>
+            </Card>
 
-        <Card className="bg-zinc-900 border-zinc-800">
-          <CardHeader>
-            <CardTitle className="text-zinc-400 text-sm">
-              Est. 1RM Ceiling
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-blue-500">
-              {stats?.pr1rm}
-              <span className="text-lg text-zinc-600 ml-1">kg</span>
-            </div>
-            <p className="text-xs text-zinc-500 mt-1">Theoretical max</p>
-          </CardContent>
-        </Card>
+            <Card className="bg-zinc-900 border-zinc-800">
+              <CardHeader>
+                <CardTitle className="text-zinc-400 text-sm">
+                  Volume Record
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-purple-500">
+                  {stats?.maxVolume}
+                  <span className="text-sm text-zinc-600 ml-1">reps</span>
+                </div>
+                <p className="text-xs text-zinc-500 mt-1">
+                  Most reps in a session: {stats?.heaviestSession}
+                </p>
+              </CardContent>
+            </Card>
+          </>
+        ) : (
+          <>
+            <Card className="bg-zinc-900 border-zinc-800">
+              <CardHeader>
+                <CardTitle className="text-zinc-400 text-sm">
+                  Current PR
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-emerald-500">
+                  {stats?.prWeight}
+                  <span className="text-lg text-zinc-600 ml-1">kg</span>
+                </div>
+                <p className="text-xs text-zinc-500 mt-1">
+                  Best recorded weight
+                </p>
+              </CardContent>
+            </Card>
 
-        <Card className="bg-zinc-900 border-zinc-800">
-          <CardHeader>
-            <CardTitle className="text-zinc-400 text-sm">
-              Volume Record
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-purple-500">
-              {stats?.maxVolume}
-              <span className="text-sm text-zinc-600 ml-1">kg</span>
-            </div>
-            <p className="text-xs text-zinc-500 mt-1">
-              Heaviest session: {stats?.heaviestSession}
-            </p>
-          </CardContent>
-        </Card>
+            <Card className="bg-zinc-900 border-zinc-800">
+              <CardHeader>
+                <CardTitle className="text-zinc-400 text-sm">
+                  Est. 1RM Ceiling
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-blue-500">
+                  {stats?.pr1rm}
+                  <span className="text-lg text-zinc-600 ml-1">kg</span>
+                </div>
+                <p className="text-xs text-zinc-500 mt-1">Theoretical max</p>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-zinc-900 border-zinc-800">
+              <CardHeader>
+                <CardTitle className="text-zinc-400 text-sm">
+                  Volume Record
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-purple-500">
+                  {stats?.maxVolume}
+                  <span className="text-sm text-zinc-600 ml-1">kg</span>
+                </div>
+                <p className="text-xs text-zinc-500 mt-1">
+                  Heaviest session: {stats?.heaviestSession}
+                </p>
+              </CardContent>
+            </Card>
+          </>
+        )}
 
         <Card className="bg-zinc-900 border-zinc-800">
           <CardHeader>
@@ -342,40 +452,58 @@ function RecordsView({ exercises }: { exercises: ExerciseData[] }) {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {records.map((rec) => (
-          <Card
-            key={rec.name}
-            className="bg-zinc-900 border-zinc-800 hover:border-zinc-700 transition-colors group relative overflow-hidden"
-          >
-            {isNewPR(rec.maxWeightDate) && (
-              <div className="absolute top-0 right-0 bg-emerald-500 text-zinc-950 text-[10px] font-bold px-2 py-1 rounded-bl-lg z-10">
-                NEW!
-              </div>
-            )}
-            <CardHeader className="pb-2">
-              <CardTitle
-                className="text-zinc-300 text-base capitalize truncate"
-                title={rec.name}
-              >
-                {rec.name}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-baseline gap-1">
-                <span className="text-3xl font-bold text-zinc-100">
-                  {rec.maxWeight}
-                </span>
-                <span className="text-sm text-zinc-500">kg</span>
-              </div>
-              <div className="flex justify-between items-center mt-4 text-xs text-zinc-500">
-                <span>{rec.maxWeightDate || "N/A"}</span>
-                <span className="group-hover:text-emerald-500 transition-colors">
-                  Est. 1RM: {Math.round(rec.lastEstimated1RM)}
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+        {records.map((rec) => {
+          const isBodyweight = isBodyweightExercise(exercises, rec.name);
+          const prs = getPRs(exercises, rec.name);
+
+          return (
+            <Card
+              key={rec.name}
+              className="bg-zinc-900 border-zinc-800 hover:border-zinc-700 transition-colors group relative overflow-hidden"
+            >
+              {isNewPR(rec.maxWeightDate) && (
+                <div className="absolute top-0 right-0 bg-emerald-500 text-zinc-950 text-[10px] font-bold px-2 py-1 rounded-bl-lg z-10">
+                  NEW!
+                </div>
+              )}
+              <CardHeader className="pb-2">
+                <CardTitle
+                  className="text-zinc-300 text-base capitalize truncate"
+                  title={rec.name}
+                >
+                  {rec.name}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-baseline gap-1">
+                  {isBodyweight ? (
+                    <>
+                      <span className="text-3xl font-bold text-zinc-100">
+                        {prs.maxReps.reps}
+                      </span>
+                      <span className="text-sm text-zinc-500">reps</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-3xl font-bold text-zinc-100">
+                        {rec.maxWeight}
+                      </span>
+                      <span className="text-sm text-zinc-500">kg</span>
+                    </>
+                  )}
+                </div>
+                <div className="flex justify-between items-center mt-4 text-xs text-zinc-500">
+                  <span>{rec.maxWeightDate || "N/A"}</span>
+                  {!isBodyweight && (
+                    <span className="group-hover:text-emerald-500 transition-colors">
+                      Est. 1RM: {Math.round(rec.lastEstimated1RM)}
+                    </span>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
     </div>
   );
@@ -522,22 +650,31 @@ function PRFeed({ exercises }: { exercises: ExerciseData[] }) {
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          {prs.map((pr) => (
-            <div
-              key={pr.name}
-              className="flex items-center justify-between p-3 rounded-lg bg-zinc-950/50 border border-zinc-800/50"
-            >
-              <div className="overflow-hidden">
-                <div className="text-sm font-medium text-zinc-200 capitalize truncate">
-                  {pr.name}
+          {prs.map((pr) => {
+            const isBodyweight = isBodyweightExercise(exercises, pr.name);
+            const prData = getPRs(exercises, pr.name);
+
+            return (
+              <div
+                key={pr.name}
+                className="flex items-center justify-between p-3 rounded-lg bg-zinc-950/50 border border-zinc-800/50"
+              >
+                <div className="overflow-hidden">
+                  <div className="text-sm font-medium text-zinc-200 capitalize truncate">
+                    {pr.name}
+                  </div>
+                  <div className="text-xs text-zinc-500">
+                    {pr.maxWeightDate}
+                  </div>
                 </div>
-                <div className="text-xs text-zinc-500">{pr.maxWeightDate}</div>
+                <div className="text-lg font-bold text-emerald-500 whitespace-nowrap ml-2">
+                  {isBodyweight
+                    ? `${prData.maxReps.reps} reps`
+                    : `${pr.maxWeight}kg`}
+                </div>
               </div>
-              <div className="text-lg font-bold text-emerald-500 whitespace-nowrap ml-2">
-                {pr.maxWeight}kg
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </CardContent>
     </Card>

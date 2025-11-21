@@ -13,7 +13,7 @@ const server = serve({
         const text = await Bun.file("../data/input.txt").text();
         const splitLines = splitLinesByDate(text);
         let exercises: Exercise[] = [];
-        for (const [date, lines] of splitLines) {
+        for (const [date, lines] of Array.from(splitLines)) {
           for (const line of lines) {
             const result = Exercise.fromLine(date, line);
             exercises = exercises.concat(result);

@@ -99,6 +99,63 @@ export function getVolumePerSession(
 }
 
 /**
+ * Check if an exercise is a bodyweight exercise (max weight <= 1kg)
+ */
+export function isBodyweightExercise(
+  exercises: Exercise[],
+  exerciseName: string
+): boolean {
+  const history = getExerciseHistory(exercises, exerciseName);
+  if (history.length === 0) return false;
+
+  // If ANY set has weight > 1, it's not purely bodyweight
+  const maxWeight = Math.max(...history.map((e) => e.weight));
+  return maxWeight <= 1;
+}
+
+/**
+ * Get max reps per workout session for an exercise
+ */
+export function getMaxRepsProgression(
+  exercises: Exercise[],
+  exerciseName: string
+): Array<{ date: string; reps: number }> {
+  const history = getExerciseHistory(exercises, exerciseName);
+  const sessionMap = new Map<string, number>();
+
+  for (const ex of history) {
+    const currentMax = sessionMap.get(ex.date) ?? 0;
+    if (ex.reps > currentMax) {
+      sessionMap.set(ex.date, ex.reps);
+    }
+  }
+
+  return Array.from(sessionMap.entries())
+    .map(([date, reps]) => ({ date, reps }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/**
+ * Get total reps per workout session for an exercise
+ */
+export function getTotalRepsProgression(
+  exercises: Exercise[],
+  exerciseName: string
+): Array<{ date: string; totalReps: number }> {
+  const history = getExerciseHistory(exercises, exerciseName);
+  const sessionMap = new Map<string, number>();
+
+  for (const ex of history) {
+    const currentTotal = sessionMap.get(ex.date) ?? 0;
+    sessionMap.set(ex.date, currentTotal + ex.reps);
+  }
+
+  return Array.from(sessionMap.entries())
+    .map(([date, totalReps]) => ({ date, totalReps }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/**
  * Get personal records for an exercise
  */
 export function getPRs(
@@ -112,11 +169,13 @@ export function getPRs(
     reps: number;
     date: string;
   };
+  maxReps: { reps: number; weight: number; date: string };
 } {
   const history = getExerciseHistory(exercises, exerciseName);
 
   let maxWeight = { weight: 0, date: "" };
   let max1RM = { estimated1RM: 0, weight: 0, reps: 0, date: "" };
+  let maxReps = { reps: 0, weight: 0, date: "" };
 
   for (const ex of history) {
     // Track max weight
@@ -134,9 +193,14 @@ export function getPRs(
         date: ex.date,
       };
     }
+
+    // Track max reps
+    if (ex.reps > maxReps.reps) {
+      maxReps = { reps: ex.reps, weight: ex.weight, date: ex.date };
+    }
   }
 
-  return { maxWeight, max1RM };
+  return { maxWeight, max1RM, maxReps };
 }
 
 /**
