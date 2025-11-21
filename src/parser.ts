@@ -1,5 +1,5 @@
 const repsRegex = /^\d+$/;
-const weightRegex = /^\d{1,4}[b|w]$/;
+const weightRegex = /^((?:\d{1,4})(?:(?:\.)(?:\d{1,4}))?)[b|w]$/;
 
 const splitLinesByDate = (text: string) => {
   const chunks = new Map() as Map<string, string[]>;
@@ -56,7 +56,13 @@ const tryParseWeight = (
     return null;
   }
 
-  const value = parseInt(match[0].slice(0, -1), 10);
+  const val = match[0];
+  let value;
+  if (val.includes(".")) {
+    value = parseFloat(val);
+  } else {
+    value = parseInt(val, 10);
+  }
   if (isNaN(value)) {
     throw new Error(`Failed to parse weight: ${text}`);
   }
