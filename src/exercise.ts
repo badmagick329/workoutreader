@@ -7,6 +7,8 @@ export class Exercise {
   readonly reps: number;
   readonly isBarbell: boolean;
 
+  static readonly barbellWeight = 20;
+
   constructor(params: {
     date: string;
     name: string;
@@ -16,7 +18,9 @@ export class Exercise {
   }) {
     this.date = params.date;
     this.name = params.name;
-    this.weight = params.weight;
+    this.weight = params.isBarbell
+      ? params.weight + Exercise.barbellWeight
+      : params.weight;
     this.reps = params.reps;
     this.isBarbell = params.isBarbell;
   }
