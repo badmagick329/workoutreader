@@ -1,5 +1,6 @@
 import { Exercise } from "./exercise";
 import { splitLinesByDate } from "./parser";
+import { writeExercisesToCsv } from "./csv-writer";
 const print = console.log;
 
 async function main() {
@@ -14,6 +15,10 @@ async function main() {
     }
   }
   print(exercises.map((e) => e.toString()).join("\n"));
+
+  // Write CSV export
+  await writeExercisesToCsv(exercises, "./data/output.csv");
+  print(`\nExported ${exercises.length} sets to data/output.csv`);
 }
 
 main();

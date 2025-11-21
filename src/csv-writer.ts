@@ -1,3 +1,5 @@
+import { Exercise } from "./exercise";
+
 type CsvOptions = {
   delimiter?: string; // default ","
   eol?: string; // default "\r\n"
@@ -65,13 +67,20 @@ export function toCSV(
   return out;
 }
 
-// Example usage (Bun):
-// const headers = ["id", "name", "notes"];
-// const rows = [
-//   { id: 1, name: 'Alice', notes: 'Hello, world' },
-//   { id: 2, name: 'Bob',   notes: 'He said "hi"' },
-//   { id: 3, name: 'Carol', notes: "Line1\nLine2" },
-// ];
+export async function writeExercisesToCsv(
+  exercises: Exercise[],
+  outputPath: string
+): Promise<void> {
+  const headers = ["date", "exercise", "weight", "isBarbell", "reps", "volume"];
+  const rows = exercises.map((e) => ({
+    date: e.date,
+    exercise: e.name,
+    weight: e.weight,
+    isBarbell: e.isBarbell,
+    reps: e.reps,
+    volume: e.weight * e.reps,
+  }));
 
-// const csv = toCSV(headers, rows, { bom: true, hardenForExcel: true });
-// await Bun.write("people.csv", csv);
+  const csv = toCSV(headers, rows);
+  await Bun.write(outputPath, csv);
+}
