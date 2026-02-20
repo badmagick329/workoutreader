@@ -12,6 +12,7 @@ import {
 import type { ExerciseData } from "@/shared/workout-types";
 
 export type ExplorerMetric = "1rm" | "weight" | "volume" | "reps";
+export type ExplorerFilter = "All" | "Push" | "Pull" | "Legs" | "Custom";
 
 type ExplorerStats = ReturnType<typeof buildExplorerStats>;
 
@@ -45,6 +46,50 @@ function getConfigKey(config?: RotationQualityConfigInput): string {
 export function getExerciseNames(exercises: ExerciseData[]) {
   const names = new Set(exercises.map((e) => e.name));
   return Array.from(names).sort();
+}
+
+export function getExplorerFilter(name: string): ExplorerFilter {
+  const normalized = name.toLowerCase();
+
+  if (
+    ["squat", "lunge", "leg", "calf", "hamstring", "quad", "glute", "rdl"].some(
+      (token) => normalized.includes(token),
+    )
+  ) {
+    return "Legs";
+  }
+
+  if (
+    [
+      "row",
+      "pull",
+      "pulldown",
+      "curl",
+      "rear",
+      "shrug",
+      "lat",
+      "face pull",
+    ].some((token) => normalized.includes(token))
+  ) {
+    return "Pull";
+  }
+
+  if (
+    [
+      "press",
+      "bench",
+      "dip",
+      "tricep",
+      "pushdown",
+      "fly",
+      "chest",
+      "shoulder",
+    ].some((token) => normalized.includes(token))
+  ) {
+    return "Push";
+  }
+
+  return "Custom";
 }
 
 export function getExplorerChartData({

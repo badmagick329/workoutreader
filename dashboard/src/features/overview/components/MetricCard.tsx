@@ -1,4 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ICON_STYLE } from "@/shared/icon-style";
 
 type IconComponent = React.ComponentType<{ className?: string }>;
 
@@ -21,7 +22,7 @@ export function MetricCard({
         <CardTitle className="text-sm font-medium text-zinc-400">
           {title}
         </CardTitle>
-        <Icon className={`h-4 w-4 ${colorClass}`} />
+        <Icon className={`${ICON_STYLE.title} ${colorClass}`} />
       </CardHeader>
       <CardContent>
         <div className="text-2xl font-bold text-zinc-100">{value}</div>

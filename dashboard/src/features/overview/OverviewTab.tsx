@@ -3,7 +3,7 @@ import { Activity, Dumbbell, Flame, Trophy } from "lucide-react";
 import { MetricCard } from "@/features/overview/components/MetricCard";
 import { StrengthScoreChart } from "@/features/overview/components/StrengthScoreChart";
 import { RecentPRFeed } from "@/features/overview/components/RecentPRFeed";
-import { WeeklyVolumeTrend } from "@/features/overview/components/WeeklyVolumeTrend";
+import { ConsistencyReadinessCard } from "@/features/overview/components/ConsistencyReadinessCard";
 import { getOverviewMetrics } from "@/features/overview/selectors/getOverviewMetrics";
 import type { ExerciseData } from "@/shared/workout-types";
 
@@ -65,7 +65,7 @@ export function OverviewTab({ exercises }: { exercises: ExerciseData[] }) {
         <StrengthScoreChart exercises={exercises} />
         <div className="space-y-8 lg:col-span-1">
           <RecentPRFeed exercises={exercises} />
-          <WeeklyVolumeTrend exercises={exercises} />
+          <ConsistencyReadinessCard exercises={exercises} />
         </div>
       </div>
     </>

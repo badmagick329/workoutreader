@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getPRs, isBodyweightExercise } from "@/shared/workout-analysis";
 import type { ExerciseData } from "@/shared/workout-types";
 import { getRecentPRs } from "@/features/overview/selectors/getRecentPRs";
+import { ICON_STYLE } from "@/shared/icon-style";
 
 export function RecentPRFeed({ exercises }: { exercises: ExerciseData[] }) {
   const prs = useMemo(() => getRecentPRs(exercises), [exercises]);
@@ -12,7 +13,7 @@ export function RecentPRFeed({ exercises }: { exercises: ExerciseData[] }) {
     <Card className="bg-zinc-900 border-zinc-800 col-span-full lg:col-span-1">
       <CardHeader>
         <CardTitle className="text-zinc-100 flex items-center gap-2">
-          <Trophy className="h-5 w-5 text-yellow-500" />
+          <Trophy className={`${ICON_STYLE.title} text-yellow-500`} />
           Recent PRs
         </CardTitle>
       </CardHeader>

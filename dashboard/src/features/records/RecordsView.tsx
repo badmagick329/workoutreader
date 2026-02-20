@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { ExerciseData } from "@/shared/workout-types";
 import { getSortedRecords } from "@/features/records/selectors/getSortedRecords";
+import { getStatusBadgeClass } from "@/shared/status-style";
 
 export function RecordsView({ exercises }: { exercises: ExerciseData[] }) {
   const [sortBy, setSortBy] = useState<"date" | "name">("date");
@@ -40,16 +41,7 @@ export function RecordsView({ exercises }: { exercises: ExerciseData[] }) {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {records.map((rec) => {
-          const statusTone =
-            rec.status === "improving"
-              ? "bg-emerald-500 text-zinc-950"
-              : rec.status === "declining"
-                ? "bg-rose-500 text-zinc-950"
-                : rec.status === "emerging"
-                  ? "bg-sky-500 text-zinc-950"
-                  : rec.status === "phased-out"
-                    ? "bg-zinc-700 text-zinc-200"
-                    : "bg-zinc-800 text-zinc-200";
+          const statusTone = getStatusBadgeClass(rec.status);
 
           return (
             <Card
