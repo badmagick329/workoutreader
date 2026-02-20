@@ -5,7 +5,7 @@ import { Exercise } from "./exercise";
  */
 export function getExerciseHistory(
   exercises: Exercise[],
-  exerciseName: string
+  exerciseName: string,
 ): Exercise[] {
   return exercises
     .filter((e) => e.name === exerciseName)
@@ -17,7 +17,7 @@ export function getExerciseHistory(
  */
 export function getMaxWeightProgression(
   exercises: Exercise[],
-  exerciseName: string
+  exerciseName: string,
 ): Array<{ date: string; weight: number }> {
   const history = getExerciseHistory(exercises, exerciseName);
   const sessionMap = new Map<string, number>();
@@ -47,7 +47,7 @@ export function calculate1RM(weight: number, reps: number): number {
  */
 export function get1RMProgression(
   exercises: Exercise[],
-  exerciseName: string
+  exerciseName: string,
 ): Array<{ date: string; estimated1RM: number }> {
   const history = getExerciseHistory(exercises, exerciseName);
   const sessionMap = new Map<string, number>();
@@ -69,7 +69,7 @@ export function get1RMProgression(
  * Get total volume per session (grouped by date and exercise)
  */
 export function getVolumePerSession(
-  exercises: Exercise[]
+  exercises: Exercise[],
 ): Map<string, Array<{ date: string; exercise: string; volume: number }>> {
   const grouped = new Map<
     string,
@@ -85,7 +85,7 @@ export function getVolumePerSession(
     const volume = ex.weight * ex.reps;
     const existing = grouped.get(key)!;
     const entry = existing.find(
-      (e) => e.date === ex.date && e.exercise === ex.name
+      (e) => e.date === ex.date && e.exercise === ex.name,
     );
 
     if (entry) {
@@ -103,7 +103,7 @@ export function getVolumePerSession(
  */
 export function isBodyweightExercise(
   exercises: Exercise[],
-  exerciseName: string
+  exerciseName: string,
 ): boolean {
   const history = getExerciseHistory(exercises, exerciseName);
   if (history.length === 0) return false;
@@ -118,7 +118,7 @@ export function isBodyweightExercise(
  */
 export function getMaxRepsProgression(
   exercises: Exercise[],
-  exerciseName: string
+  exerciseName: string,
 ): Array<{ date: string; reps: number }> {
   const history = getExerciseHistory(exercises, exerciseName);
   const sessionMap = new Map<string, number>();
@@ -140,7 +140,7 @@ export function getMaxRepsProgression(
  */
 export function getTotalRepsProgression(
   exercises: Exercise[],
-  exerciseName: string
+  exerciseName: string,
 ): Array<{ date: string; totalReps: number }> {
   const history = getExerciseHistory(exercises, exerciseName);
   const sessionMap = new Map<string, number>();
@@ -160,7 +160,7 @@ export function getTotalRepsProgression(
  */
 export function getPRs(
   exercises: Exercise[],
-  exerciseName: string
+  exerciseName: string,
 ): {
   maxWeight: { weight: number; date: string };
   max1RM: {
@@ -244,4 +244,364 @@ export function getExerciseSummary(exercises: Exercise[]): Array<{
   });
 
   return summaries.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+type ExerciseWindowStats = {
+  sessions: number;
+  volume: number;
+  bestWeight: number;
+  best1RM: number;
+  bestReps: number;
+  setCount: number;
+};
+
+export type RotationQualityMetrics = {
+  anchorDate: string;
+  windowDays: number;
+  qualityScore: number;
+  progressionScore: number;
+  consistencyScore: number;
+  balanceScore: number;
+  totalVolume: number;
+  currentBlockVolume: number;
+  previousBlockVolume: number;
+  blockVolumeDelta: number;
+  activeExercisesCount: number;
+  improvingCount: number;
+  stableCount: number;
+  decliningCount: number;
+  emergingCount: number;
+  phasedOutCount: number;
+  currentSessions: number;
+  previousSessions: number;
+  sessionsPerWeek: number;
+  favoriteLift: string;
+};
+
+function parseYYMMDDToUTC(dateStr: string): Date {
+  const year = 2000 + Number.parseInt(dateStr.slice(0, 2), 10);
+  const month = Number.parseInt(dateStr.slice(2, 4), 10) - 1;
+  const day = Number.parseInt(dateStr.slice(4, 6), 10);
+  return new Date(Date.UTC(year, month, day));
+}
+
+function formatUTCToYYMMDD(date: Date): string {
+  const year = date.getUTCFullYear() % 100;
+  const month = date.getUTCMonth() + 1;
+  const day = date.getUTCDate();
+  return `${String(year).padStart(2, "0")}${String(month).padStart(2, "0")}${String(day).padStart(2, "0")}`;
+}
+
+function addDaysUTC(date: Date, days: number): Date {
+  const next = new Date(date);
+  next.setUTCDate(next.getUTCDate() + days);
+  return next;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
+
+function getUniqueSessionCount(exercises: Exercise[]): number {
+  return new Set(exercises.map((exercise) => exercise.date)).size;
+}
+
+function getFavoriteLift(exercises: Exercise[]): string {
+  if (exercises.length === 0) return "";
+
+  const counts = new Map<string, number>();
+  for (const exercise of exercises) {
+    counts.set(exercise.name, (counts.get(exercise.name) ?? 0) + 1);
+  }
+
+  let favoriteLift = "";
+  let maxCount = 0;
+  for (const [name, count] of Array.from(counts.entries())) {
+    if (count > maxCount) {
+      maxCount = count;
+      favoriteLift = name;
+    }
+  }
+
+  return favoriteLift;
+}
+
+function getWindowExerciseStats(
+  exercises: Exercise[],
+): Map<string, ExerciseWindowStats> {
+  const perExercise = new Map<
+    string,
+    {
+      sessionDates: Set<string>;
+      volume: number;
+      bestWeight: number;
+      best1RM: number;
+      bestReps: number;
+      setCount: number;
+    }
+  >();
+
+  for (const exercise of exercises) {
+    const existing = perExercise.get(exercise.name) ?? {
+      sessionDates: new Set<string>(),
+      volume: 0,
+      bestWeight: 0,
+      best1RM: 0,
+      bestReps: 0,
+      setCount: 0,
+    };
+
+    existing.sessionDates.add(exercise.date);
+    existing.volume += exercise.weight * exercise.reps;
+    existing.bestWeight = Math.max(existing.bestWeight, exercise.weight);
+    existing.best1RM = Math.max(
+      existing.best1RM,
+      calculate1RM(exercise.weight, exercise.reps),
+    );
+    existing.bestReps = Math.max(existing.bestReps, exercise.reps);
+    existing.setCount += 1;
+
+    perExercise.set(exercise.name, existing);
+  }
+
+  const result = new Map<string, ExerciseWindowStats>();
+  for (const [name, stats] of Array.from(perExercise.entries())) {
+    result.set(name, {
+      sessions: stats.sessionDates.size,
+      volume: stats.volume,
+      bestWeight: stats.bestWeight,
+      best1RM: stats.best1RM,
+      bestReps: stats.bestReps,
+      setCount: stats.setCount,
+    });
+  }
+
+  return result;
+}
+
+function getPerformanceMetric(
+  exerciseName: string,
+  stats: ExerciseWindowStats,
+  allExercises: Exercise[],
+): number {
+  if (isBodyweightExercise(allExercises, exerciseName)) {
+    return stats.bestReps;
+  }
+
+  return stats.best1RM;
+}
+
+export function getLatestWorkoutDate(exercises: Exercise[]): string {
+  if (exercises.length === 0) return "";
+
+  let latest = exercises[0]?.date ?? "";
+  for (const exercise of exercises) {
+    if (exercise.date > latest) {
+      latest = exercise.date;
+    }
+  }
+
+  return latest;
+}
+
+export function getExercisesInDateWindow(
+  exercises: Exercise[],
+  startDate: string,
+  endDate: string,
+): Exercise[] {
+  return exercises.filter(
+    (exercise) => exercise.date >= startDate && exercise.date <= endDate,
+  );
+}
+
+export function getWindowComparison(
+  exercises: Exercise[],
+  windowDays = 42,
+  anchorDate?: string,
+): {
+  anchorDate: string;
+  currentStartDate: string;
+  currentEndDate: string;
+  previousStartDate: string;
+  previousEndDate: string;
+  currentExercises: Exercise[];
+  previousExercises: Exercise[];
+} | null {
+  if (exercises.length === 0) return null;
+
+  const endDate = anchorDate ?? getLatestWorkoutDate(exercises);
+  if (!endDate) return null;
+
+  const end = parseYYMMDDToUTC(endDate);
+  const currentStart = addDaysUTC(end, -(windowDays - 1));
+  const previousEnd = addDaysUTC(currentStart, -1);
+  const previousStart = addDaysUTC(previousEnd, -(windowDays - 1));
+
+  const currentStartDate = formatUTCToYYMMDD(currentStart);
+  const currentEndDate = formatUTCToYYMMDD(end);
+  const previousStartDate = formatUTCToYYMMDD(previousStart);
+  const previousEndDate = formatUTCToYYMMDD(previousEnd);
+
+  return {
+    anchorDate: endDate,
+    currentStartDate,
+    currentEndDate,
+    previousStartDate,
+    previousEndDate,
+    currentExercises: getExercisesInDateWindow(
+      exercises,
+      currentStartDate,
+      currentEndDate,
+    ),
+    previousExercises: getExercisesInDateWindow(
+      exercises,
+      previousStartDate,
+      previousEndDate,
+    ),
+  };
+}
+
+export function getRotationQualityMetrics(
+  exercises: Exercise[],
+  windowDays = 42,
+  anchorDate?: string,
+): RotationQualityMetrics | null {
+  const windows = getWindowComparison(exercises, windowDays, anchorDate);
+  if (!windows) return null;
+
+  const currentStats = getWindowExerciseStats(windows.currentExercises);
+  const previousStats = getWindowExerciseStats(windows.previousExercises);
+
+  const activeExercises = new Set(Array.from(currentStats.keys()));
+  const previousExercises = new Set(Array.from(previousStats.keys()));
+
+  let improvingCount = 0;
+  let stableCount = 0;
+  let decliningCount = 0;
+  let emergingCount = 0;
+  let phasedOutCount = 0;
+
+  const progressionSamples: number[] = [];
+
+  for (const exerciseName of Array.from(activeExercises)) {
+    const current = currentStats.get(exerciseName);
+    if (!current) continue;
+
+    const previous = previousStats.get(exerciseName);
+    if (!previous) {
+      emergingCount += 1;
+      continue;
+    }
+
+    const currentMetric = getPerformanceMetric(
+      exerciseName,
+      current,
+      exercises,
+    );
+    const previousMetric = getPerformanceMetric(
+      exerciseName,
+      previous,
+      exercises,
+    );
+
+    if (previousMetric <= 0) {
+      stableCount += 1;
+      continue;
+    }
+
+    const changeRatio = (currentMetric - previousMetric) / previousMetric;
+    progressionSamples.push(clamp(changeRatio, -1, 1));
+
+    if (changeRatio > 0.01) {
+      improvingCount += 1;
+    } else if (changeRatio < -0.01) {
+      decliningCount += 1;
+    } else {
+      stableCount += 1;
+    }
+  }
+
+  for (const exerciseName of Array.from(previousExercises)) {
+    if (!activeExercises.has(exerciseName)) {
+      phasedOutCount += 1;
+    }
+  }
+
+  const averageProgression =
+    progressionSamples.length > 0
+      ? progressionSamples.reduce((acc, value) => acc + value, 0) /
+        progressionSamples.length
+      : 0;
+  const progressionScore = Math.round(
+    clamp(50 + averageProgression * 50, 0, 100),
+  );
+
+  const currentSessions = getUniqueSessionCount(windows.currentExercises);
+  const previousSessions = getUniqueSessionCount(windows.previousExercises);
+  const sessionsPerWeek = currentSessions / (windowDays / 7);
+  const consistencyScore = Math.round(
+    clamp((sessionsPerWeek / 4) * 100, 0, 100),
+  );
+
+  const activeExerciseCount = activeExercises.size;
+  let balanceScore = 100;
+  if (activeExerciseCount > 1) {
+    const totalSets = windows.currentExercises.length;
+    let entropy = 0;
+
+    for (const stats of Array.from(currentStats.values())) {
+      const p = stats.setCount / totalSets;
+      if (p > 0) {
+        entropy -= p * Math.log(p);
+      }
+    }
+
+    const maxEntropy = Math.log(activeExerciseCount);
+    balanceScore = Math.round(clamp((entropy / maxEntropy) * 100, 0, 100));
+  }
+
+  const qualityScore = Math.round(
+    clamp(
+      progressionScore * 0.45 + consistencyScore * 0.35 + balanceScore * 0.2,
+      0,
+      100,
+    ),
+  );
+
+  const currentBlockVolume = windows.currentExercises.reduce(
+    (acc, exercise) => acc + exercise.weight * exercise.reps,
+    0,
+  );
+  const previousBlockVolume = windows.previousExercises.reduce(
+    (acc, exercise) => acc + exercise.weight * exercise.reps,
+    0,
+  );
+
+  const totalVolume = exercises.reduce(
+    (acc, exercise) => acc + exercise.weight * exercise.reps,
+    0,
+  );
+
+  return {
+    anchorDate: windows.anchorDate,
+    windowDays,
+    qualityScore,
+    progressionScore,
+    consistencyScore,
+    balanceScore,
+    totalVolume,
+    currentBlockVolume,
+    previousBlockVolume,
+    blockVolumeDelta: currentBlockVolume - previousBlockVolume,
+    activeExercisesCount: activeExerciseCount,
+    improvingCount,
+    stableCount,
+    decliningCount,
+    emergingCount,
+    phasedOutCount,
+    currentSessions,
+    previousSessions,
+    sessionsPerWeek,
+    favoriteLift: getFavoriteLift(windows.currentExercises),
+  };
 }

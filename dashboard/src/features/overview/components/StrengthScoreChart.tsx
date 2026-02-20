@@ -25,7 +25,7 @@ export function StrengthScoreChart({
       <CardHeader>
         <CardTitle className="text-zinc-100 flex items-center gap-2">
           <Activity className="h-5 w-5 text-emerald-500" />
-          Strength Score Progression
+          Quality Score Trend (42d vs prior 42d)
         </CardTitle>
       </CardHeader>
       <CardContent>

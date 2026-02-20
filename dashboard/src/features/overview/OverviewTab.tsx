@@ -22,23 +22,23 @@ export function OverviewTab({ exercises }: { exercises: ExerciseData[] }) {
             colorClass="text-blue-500"
           />
           <MetricCard
-            title="Strength Score"
-            value={metrics.strengthScore}
-            subtext="Big 3 Total (Est. 1RM)"
+            title="Quality Score"
+            value={metrics.qualityScore}
+            subtext={`42d block composite • ${metrics.anchorDate}`}
             icon={Activity}
             colorClass="text-emerald-500"
           />
           <MetricCard
-            title="PRs Last 30 Days"
-            value={metrics.recentPRsCount}
-            subtext="Recent records set"
+            title="Block Momentum"
+            value={metrics.improvingCount - metrics.decliningCount}
+            subtext={`${metrics.improvingCount} up • ${metrics.decliningCount} down`}
             icon={Trophy}
             colorClass="text-yellow-500"
           />
           <MetricCard
-            title="Favorite Lift"
-            value={metrics.favoriteLift}
-            subtext="Most frequent exercise"
+            title="Active Lifts"
+            value={metrics.activeExercisesCount}
+            subtext={`${metrics.currentSessions} sessions in current 42d`}
             icon={Flame}
             colorClass="text-orange-500"
           />
