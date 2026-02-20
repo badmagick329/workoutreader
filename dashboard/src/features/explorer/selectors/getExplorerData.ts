@@ -1,14 +1,46 @@
 import {
+  getExerciseBlockComparisons,
   get1RMProgression,
   getExerciseHistory,
   getMaxRepsProgression,
   getMaxWeightProgression,
   getPRs,
   getTotalRepsProgression,
+  type ExerciseBlockStatus,
+  type RotationQualityConfigInput,
 } from "@/shared/workout-analysis";
 import type { ExerciseData } from "@/shared/workout-types";
 
 export type ExplorerMetric = "1rm" | "weight" | "volume" | "reps";
+
+type ExplorerStats = ReturnType<typeof buildExplorerStats>;
+
+const explorerStatsCache = new WeakMap<
+  ExerciseData[],
+  Map<string, ExplorerStats>
+>();
+
+function getConfigKey(config?: RotationQualityConfigInput): string {
+  if (!config) return "default";
+
+  return JSON.stringify({
+    cw: {
+      p: config.compositeWeights?.progression ?? null,
+      c: config.compositeWeights?.consistency ?? null,
+      b: config.compositeWeights?.balance ?? null,
+    },
+    pt: {
+      i: config.progressThresholds?.improving ?? null,
+      d: config.progressThresholds?.declining ?? null,
+    },
+    ctm: config.consistencyTargetMode ?? null,
+    ctw: config.consistencyTargetSessionsPerWeek ?? null,
+    ac: {
+      pbc: config.adaptiveConsistency?.priorBlockCount ?? null,
+      ftsw: config.adaptiveConsistency?.fallbackTargetSessionsPerWeek ?? null,
+    },
+  });
+}
 
 export function getExerciseNames(exercises: ExerciseData[]) {
   const names = new Set(exercises.map((e) => e.name));
@@ -72,15 +104,58 @@ export function getExplorerStats({
   exercises,
   selectedExercise,
   isBodyweight,
+  config,
 }: {
   exercises: ExerciseData[];
   selectedExercise: string;
   isBodyweight: boolean;
+  config?: RotationQualityConfigInput;
+}) {
+  if (!selectedExercise) return null;
+
+  let perExerciseCache = explorerStatsCache.get(exercises);
+  if (!perExerciseCache) {
+    perExerciseCache = new Map<string, ExplorerStats>();
+    explorerStatsCache.set(exercises, perExerciseCache);
+  }
+
+  const cacheKey = `${exercises.length}|${selectedExercise}|${isBodyweight}|${getConfigKey(config)}`;
+  const cached = perExerciseCache.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
+  const result = buildExplorerStats({
+    exercises,
+    selectedExercise,
+    isBodyweight,
+    config,
+  });
+  perExerciseCache.set(cacheKey, result);
+  return result;
+}
+
+function buildExplorerStats({
+  exercises,
+  selectedExercise,
+  isBodyweight,
+  config,
+}: {
+  exercises: ExerciseData[];
+  selectedExercise: string;
+  isBodyweight: boolean;
+  config?: RotationQualityConfigInput;
 }) {
   if (!selectedExercise) return null;
 
   const prs = getPRs(exercises, selectedExercise);
   const history = getExerciseHistory(exercises, selectedExercise);
+  const comparisonMap = new Map(
+    getExerciseBlockComparisons(exercises, 42, undefined, config).map(
+      (comparison) => [comparison.name, comparison],
+    ),
+  );
+  const blockComparison = comparisonMap.get(selectedExercise);
 
   let maxVol = 0;
   let heaviestSessionDate = "";
@@ -103,5 +178,9 @@ export function getExplorerStats({
     totalSets: history.length,
     heaviestSession: heaviestSessionDate,
     maxVolume: maxVol,
+    blockStatus: (blockComparison?.status ?? "stable") as ExerciseBlockStatus,
+    currentBlockMetric: Math.round(blockComparison?.currentMetric ?? 0),
+    previousBlockMetric: Math.round(blockComparison?.previousMetric ?? 0),
+    blockDeltaRatio: blockComparison?.changeRatio ?? 0,
   };
 }

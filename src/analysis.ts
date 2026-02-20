@@ -262,6 +262,8 @@ export type RotationQualityMetrics = {
   progressionScore: number;
   consistencyScore: number;
   balanceScore: number;
+  consistencyTargetModeUsed: "fixed" | "adaptive";
+  resolvedConsistencyTargetSessionsPerWeek: number;
   totalVolume: number;
   currentBlockVolume: number;
   previousBlockVolume: number;
@@ -277,6 +279,107 @@ export type RotationQualityMetrics = {
   sessionsPerWeek: number;
   favoriteLift: string;
 };
+
+export type ExerciseBlockStatus =
+  | "improving"
+  | "stable"
+  | "declining"
+  | "emerging"
+  | "phased-out";
+
+export type ExerciseBlockComparison = {
+  name: string;
+  isBodyweight: boolean;
+  status: ExerciseBlockStatus;
+  currentMetric: number;
+  previousMetric: number;
+  changeRatio: number;
+};
+
+export type RotationQualityConfig = {
+  compositeWeights: {
+    progression: number;
+    consistency: number;
+    balance: number;
+  };
+  progressThresholds: {
+    improving: number;
+    declining: number;
+  };
+  consistencyTargetMode: "fixed" | "adaptive";
+  consistencyTargetSessionsPerWeek: number;
+  adaptiveConsistency: {
+    priorBlockCount: number;
+    fallbackTargetSessionsPerWeek: number;
+  };
+};
+
+export type RotationQualityConfigInput = {
+  compositeWeights?: Partial<RotationQualityConfig["compositeWeights"]>;
+  progressThresholds?: Partial<RotationQualityConfig["progressThresholds"]>;
+  consistencyTargetMode?: RotationQualityConfig["consistencyTargetMode"];
+  consistencyTargetSessionsPerWeek?: number;
+  adaptiveConsistency?: Partial<RotationQualityConfig["adaptiveConsistency"]>;
+};
+
+export const DEFAULT_ROTATION_QUALITY_CONFIG: RotationQualityConfig = {
+  compositeWeights: {
+    progression: 0.45,
+    consistency: 0.35,
+    balance: 0.2,
+  },
+  progressThresholds: {
+    improving: 0.01,
+    declining: -0.01,
+  },
+  consistencyTargetMode: "fixed",
+  consistencyTargetSessionsPerWeek: 4,
+  adaptiveConsistency: {
+    priorBlockCount: 3,
+    fallbackTargetSessionsPerWeek: 4,
+  },
+};
+
+function resolveRotationQualityConfig(
+  config?: RotationQualityConfigInput,
+): RotationQualityConfig {
+  return {
+    compositeWeights: {
+      progression:
+        config?.compositeWeights?.progression ??
+        DEFAULT_ROTATION_QUALITY_CONFIG.compositeWeights.progression,
+      consistency:
+        config?.compositeWeights?.consistency ??
+        DEFAULT_ROTATION_QUALITY_CONFIG.compositeWeights.consistency,
+      balance:
+        config?.compositeWeights?.balance ??
+        DEFAULT_ROTATION_QUALITY_CONFIG.compositeWeights.balance,
+    },
+    progressThresholds: {
+      improving:
+        config?.progressThresholds?.improving ??
+        DEFAULT_ROTATION_QUALITY_CONFIG.progressThresholds.improving,
+      declining:
+        config?.progressThresholds?.declining ??
+        DEFAULT_ROTATION_QUALITY_CONFIG.progressThresholds.declining,
+    },
+    consistencyTargetMode:
+      config?.consistencyTargetMode ??
+      DEFAULT_ROTATION_QUALITY_CONFIG.consistencyTargetMode,
+    consistencyTargetSessionsPerWeek:
+      config?.consistencyTargetSessionsPerWeek ??
+      DEFAULT_ROTATION_QUALITY_CONFIG.consistencyTargetSessionsPerWeek,
+    adaptiveConsistency: {
+      priorBlockCount:
+        config?.adaptiveConsistency?.priorBlockCount ??
+        DEFAULT_ROTATION_QUALITY_CONFIG.adaptiveConsistency.priorBlockCount,
+      fallbackTargetSessionsPerWeek:
+        config?.adaptiveConsistency?.fallbackTargetSessionsPerWeek ??
+        DEFAULT_ROTATION_QUALITY_CONFIG.adaptiveConsistency
+          .fallbackTargetSessionsPerWeek,
+    },
+  };
+}
 
 function parseYYMMDDToUTC(dateStr: string): Date {
   const year = 2000 + Number.parseInt(dateStr.slice(0, 2), 10);
@@ -304,6 +407,64 @@ function clamp(value: number, min: number, max: number): number {
 
 function getUniqueSessionCount(exercises: Exercise[]): number {
   return new Set(exercises.map((exercise) => exercise.date)).size;
+}
+
+function getMedian(values: number[]): number {
+  if (values.length === 0) return 0;
+
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+
+  if (sorted.length % 2 === 0) {
+    return (sorted[middle - 1]! + sorted[middle]!) / 2;
+  }
+
+  return sorted[middle]!;
+}
+
+function getAdaptiveConsistencyTargetSessionsPerWeek({
+  exercises,
+  windowDays,
+  anchorDate,
+  resolvedConfig,
+}: {
+  exercises: Exercise[];
+  windowDays: number;
+  anchorDate: string;
+  resolvedConfig: RotationQualityConfig;
+}): number {
+  const priorBlockCount = Math.max(
+    1,
+    Math.round(resolvedConfig.adaptiveConsistency.priorBlockCount),
+  );
+  const sessionsPerWeekSamples: number[] = [];
+
+  const anchor = parseYYMMDDToUTC(anchorDate);
+  const currentStart = addDaysUTC(anchor, -(windowDays - 1));
+
+  for (let offset = 1; offset <= priorBlockCount; offset += 1) {
+    const blockEnd = addDaysUTC(currentStart, -(1 + (offset - 1) * windowDays));
+    const blockStart = addDaysUTC(blockEnd, -(windowDays - 1));
+
+    const blockExercises = getExercisesInDateWindow(
+      exercises,
+      formatUTCToYYMMDD(blockStart),
+      formatUTCToYYMMDD(blockEnd),
+    );
+
+    const blockSessions = getUniqueSessionCount(blockExercises);
+    if (blockSessions === 0) {
+      continue;
+    }
+
+    sessionsPerWeekSamples.push(blockSessions / (windowDays / 7));
+  }
+
+  if (sessionsPerWeekSamples.length === 0) {
+    return resolvedConfig.adaptiveConsistency.fallbackTargetSessionsPerWeek;
+  }
+
+  return getMedian(sessionsPerWeekSamples);
 }
 
 function getFavoriteLift(exercises: Exercise[]): string {
@@ -391,6 +552,15 @@ function getPerformanceMetric(
   return stats.best1RM;
 }
 
+function classifyProgressStatus(
+  changeRatio: number,
+  thresholds: RotationQualityConfig["progressThresholds"],
+): ExerciseBlockStatus {
+  if (changeRatio > thresholds.improving) return "improving";
+  if (changeRatio < thresholds.declining) return "declining";
+  return "stable";
+}
+
 export function getLatestWorkoutDate(exercises: Exercise[]): string {
   if (exercises.length === 0) return "";
 
@@ -465,7 +635,9 @@ export function getRotationQualityMetrics(
   exercises: Exercise[],
   windowDays = 42,
   anchorDate?: string,
+  config?: RotationQualityConfigInput,
 ): RotationQualityMetrics | null {
+  const resolvedConfig = resolveRotationQualityConfig(config);
   const windows = getWindowComparison(exercises, windowDays, anchorDate);
   if (!windows) return null;
 
@@ -512,9 +684,9 @@ export function getRotationQualityMetrics(
     const changeRatio = (currentMetric - previousMetric) / previousMetric;
     progressionSamples.push(clamp(changeRatio, -1, 1));
 
-    if (changeRatio > 0.01) {
+    if (changeRatio > resolvedConfig.progressThresholds.improving) {
       improvingCount += 1;
-    } else if (changeRatio < -0.01) {
+    } else if (changeRatio < resolvedConfig.progressThresholds.declining) {
       decliningCount += 1;
     } else {
       stableCount += 1;
@@ -539,8 +711,21 @@ export function getRotationQualityMetrics(
   const currentSessions = getUniqueSessionCount(windows.currentExercises);
   const previousSessions = getUniqueSessionCount(windows.previousExercises);
   const sessionsPerWeek = currentSessions / (windowDays / 7);
+  const resolvedConsistencyTargetSessionsPerWeek =
+    resolvedConfig.consistencyTargetMode === "adaptive"
+      ? getAdaptiveConsistencyTargetSessionsPerWeek({
+          exercises,
+          windowDays,
+          anchorDate: windows.anchorDate,
+          resolvedConfig,
+        })
+      : resolvedConfig.consistencyTargetSessionsPerWeek;
   const consistencyScore = Math.round(
-    clamp((sessionsPerWeek / 4) * 100, 0, 100),
+    clamp(
+      (sessionsPerWeek / resolvedConsistencyTargetSessionsPerWeek) * 100,
+      0,
+      100,
+    ),
   );
 
   const activeExerciseCount = activeExercises.size;
@@ -562,7 +747,9 @@ export function getRotationQualityMetrics(
 
   const qualityScore = Math.round(
     clamp(
-      progressionScore * 0.45 + consistencyScore * 0.35 + balanceScore * 0.2,
+      progressionScore * resolvedConfig.compositeWeights.progression +
+        consistencyScore * resolvedConfig.compositeWeights.consistency +
+        balanceScore * resolvedConfig.compositeWeights.balance,
       0,
       100,
     ),
@@ -589,6 +776,8 @@ export function getRotationQualityMetrics(
     progressionScore,
     consistencyScore,
     balanceScore,
+    consistencyTargetModeUsed: resolvedConfig.consistencyTargetMode,
+    resolvedConsistencyTargetSessionsPerWeek,
     totalVolume,
     currentBlockVolume,
     previousBlockVolume,
@@ -604,4 +793,81 @@ export function getRotationQualityMetrics(
     sessionsPerWeek,
     favoriteLift: getFavoriteLift(windows.currentExercises),
   };
+}
+
+export function getExerciseBlockComparisons(
+  exercises: Exercise[],
+  windowDays = 42,
+  anchorDate?: string,
+  config?: RotationQualityConfigInput,
+): ExerciseBlockComparison[] {
+  const resolvedConfig = resolveRotationQualityConfig(config);
+  const windows = getWindowComparison(exercises, windowDays, anchorDate);
+  if (!windows) return [];
+
+  const currentStats = getWindowExerciseStats(windows.currentExercises);
+  const previousStats = getWindowExerciseStats(windows.previousExercises);
+  const exerciseNames = new Set<string>([
+    ...Array.from(currentStats.keys()),
+    ...Array.from(previousStats.keys()),
+  ]);
+
+  const comparisons: ExerciseBlockComparison[] = [];
+
+  for (const name of Array.from(exerciseNames)) {
+    const current = currentStats.get(name);
+    const previous = previousStats.get(name);
+    const bodyweight = isBodyweightExercise(exercises, name);
+
+    if (current && !previous) {
+      comparisons.push({
+        name,
+        isBodyweight: bodyweight,
+        status: "emerging",
+        currentMetric: getPerformanceMetric(name, current, exercises),
+        previousMetric: 0,
+        changeRatio: 1,
+      });
+      continue;
+    }
+
+    if (!current && previous) {
+      comparisons.push({
+        name,
+        isBodyweight: bodyweight,
+        status: "phased-out",
+        currentMetric: 0,
+        previousMetric: getPerformanceMetric(name, previous, exercises),
+        changeRatio: -1,
+      });
+      continue;
+    }
+
+    if (!current || !previous) {
+      continue;
+    }
+
+    const currentMetric = getPerformanceMetric(name, current, exercises);
+    const previousMetric = getPerformanceMetric(name, previous, exercises);
+
+    const rawChangeRatio =
+      previousMetric > 0
+        ? (currentMetric - previousMetric) / previousMetric
+        : 0;
+    const changeRatio = clamp(rawChangeRatio, -1, 1);
+
+    comparisons.push({
+      name,
+      isBodyweight: bodyweight,
+      status: classifyProgressStatus(
+        rawChangeRatio,
+        resolvedConfig.progressThresholds,
+      ),
+      currentMetric,
+      previousMetric,
+      changeRatio,
+    });
+  }
+
+  return comparisons.sort((a, b) => a.name.localeCompare(b.name));
 }

@@ -1,7 +1,5 @@
 import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getPRs, isBodyweightExercise } from "@/shared/workout-analysis";
-import { isWithinLastDays } from "@/shared/date";
 import type { ExerciseData } from "@/shared/workout-types";
 import { getSortedRecords } from "@/features/records/selectors/getSortedRecords";
 
@@ -42,19 +40,27 @@ export function RecordsView({ exercises }: { exercises: ExerciseData[] }) {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {records.map((rec) => {
-          const isBodyweight = isBodyweightExercise(exercises, rec.name);
-          const prs = getPRs(exercises, rec.name);
+          const statusTone =
+            rec.status === "improving"
+              ? "bg-emerald-500 text-zinc-950"
+              : rec.status === "declining"
+                ? "bg-rose-500 text-zinc-950"
+                : rec.status === "emerging"
+                  ? "bg-sky-500 text-zinc-950"
+                  : rec.status === "phased-out"
+                    ? "bg-zinc-700 text-zinc-200"
+                    : "bg-zinc-800 text-zinc-200";
 
           return (
             <Card
               key={rec.name}
               className="bg-zinc-900 border-zinc-800 hover:border-zinc-700 transition-colors group relative overflow-hidden"
             >
-              {isWithinLastDays(rec.maxWeightDate, 30) && (
-                <div className="absolute top-0 right-0 bg-emerald-500 text-zinc-950 text-[10px] font-bold px-2 py-1 rounded-bl-lg z-10">
-                  NEW!
-                </div>
-              )}
+              <div
+                className={`absolute top-0 right-0 text-[10px] font-bold px-2 py-1 rounded-bl-lg z-10 capitalize ${statusTone}`}
+              >
+                {rec.status}
+              </div>
               <CardHeader className="pb-2">
                 <CardTitle
                   className="text-zinc-300 text-base capitalize truncate"
@@ -65,25 +71,16 @@ export function RecordsView({ exercises }: { exercises: ExerciseData[] }) {
               </CardHeader>
               <CardContent>
                 <div className="flex items-baseline gap-1">
-                  {isBodyweight ? (
-                    <>
-                      <span className="text-3xl font-bold text-zinc-100">
-                        {prs.maxReps.reps}
-                      </span>
-                      <span className="text-sm text-zinc-500">reps</span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="text-3xl font-bold text-zinc-100">
-                        {rec.maxWeight}
-                      </span>
-                      <span className="text-sm text-zinc-500">kg</span>
-                    </>
-                  )}
+                  <>
+                    <span className="text-3xl font-bold text-zinc-100">
+                      {rec.primaryValue}
+                    </span>
+                    <span className="text-sm text-zinc-500">{rec.unit}</span>
+                  </>
                 </div>
                 <div className="flex justify-between items-center mt-4 text-xs text-zinc-500">
-                  <span>{rec.maxWeightDate || "N/A"}</span>
-                  {!isBodyweight && (
+                  <span>{rec.displayDate || "N/A"}</span>
+                  {!rec.isBodyweight && (
                     <span className="group-hover:text-emerald-500 transition-colors">
                       Est. 1RM: {Math.round(rec.lastEstimated1RM)}
                     </span>

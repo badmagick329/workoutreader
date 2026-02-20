@@ -78,6 +78,19 @@ export function ExplorerView({ exercises }: { exercises: ExerciseData[] }) {
     [exercises, selectedExercise, isBodyweight],
   );
 
+  const statusTone =
+    stats?.blockStatus === "improving"
+      ? "text-emerald-500"
+      : stats?.blockStatus === "declining"
+        ? "text-rose-500"
+        : stats?.blockStatus === "emerging"
+          ? "text-sky-500"
+          : stats?.blockStatus === "phased-out"
+            ? "text-zinc-500"
+            : "text-zinc-200";
+
+  const deltaLabel = `${stats && stats.blockDeltaRatio > 0 ? "+" : ""}${((stats?.blockDeltaRatio ?? 0) * 100).toFixed(1)}%`;
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
       <div className="lg:col-span-3 space-y-6">
@@ -207,94 +220,78 @@ export function ExplorerView({ exercises }: { exercises: ExerciseData[] }) {
       </div>
 
       <div className="space-y-4">
-        {isBodyweight ? (
-          <>
-            <Card className="bg-zinc-900 border-zinc-800">
-              <CardHeader>
-                <CardTitle className="text-zinc-400 text-sm">
-                  Best Set
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-emerald-500">
-                  {stats?.prReps}
-                  <span className="text-lg text-zinc-600 ml-1">reps</span>
-                </div>
-                <p className="text-xs text-zinc-500 mt-1">
-                  Max reps in one set
-                </p>
-              </CardContent>
-            </Card>
+        <Card className="bg-zinc-900 border-zinc-800">
+          <CardHeader>
+            <CardTitle className="text-zinc-400 text-sm">
+              Current Block Peak
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-emerald-500">
+              {stats?.currentBlockMetric}
+              <span className="text-lg text-zinc-600 ml-1">
+                {isBodyweight ? "reps" : "kg"}
+              </span>
+            </div>
+            <p className="text-xs text-zinc-500 mt-1">
+              Best set in current 42d
+            </p>
+          </CardContent>
+        </Card>
 
-            <Card className="bg-zinc-900 border-zinc-800">
-              <CardHeader>
-                <CardTitle className="text-zinc-400 text-sm">
-                  Volume Record
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-purple-500">
-                  {stats?.maxVolume}
-                  <span className="text-sm text-zinc-600 ml-1">reps</span>
-                </div>
-                <p className="text-xs text-zinc-500 mt-1">
-                  Most reps in a session: {stats?.heaviestSession}
-                </p>
-              </CardContent>
-            </Card>
-          </>
-        ) : (
-          <>
-            <Card className="bg-zinc-900 border-zinc-800">
-              <CardHeader>
-                <CardTitle className="text-zinc-400 text-sm">
-                  Current PR
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-emerald-500">
-                  {stats?.prWeight}
-                  <span className="text-lg text-zinc-600 ml-1">kg</span>
-                </div>
-                <p className="text-xs text-zinc-500 mt-1">
-                  Best recorded weight
-                </p>
-              </CardContent>
-            </Card>
+        <Card className="bg-zinc-900 border-zinc-800">
+          <CardHeader>
+            <CardTitle className="text-zinc-400 text-sm">
+              Previous Block Peak
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-blue-500">
+              {stats?.previousBlockMetric}
+              <span className="text-lg text-zinc-600 ml-1">
+                {isBodyweight ? "reps" : "kg"}
+              </span>
+            </div>
+            <p className="text-xs text-zinc-500 mt-1">
+              Best set in previous 42d
+            </p>
+          </CardContent>
+        </Card>
 
-            <Card className="bg-zinc-900 border-zinc-800">
-              <CardHeader>
-                <CardTitle className="text-zinc-400 text-sm">
-                  Est. 1RM Ceiling
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-blue-500">
-                  {stats?.pr1rm}
-                  <span className="text-lg text-zinc-600 ml-1">kg</span>
-                </div>
-                <p className="text-xs text-zinc-500 mt-1">Theoretical max</p>
-              </CardContent>
-            </Card>
+        <Card className="bg-zinc-900 border-zinc-800">
+          <CardHeader>
+            <CardTitle className="text-zinc-400 text-sm">
+              Block Status
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className={`text-2xl font-bold capitalize ${statusTone}`}>
+              {stats?.blockStatus ?? "stable"}
+            </div>
+            <p className="text-xs text-zinc-500 mt-1">
+              Delta vs previous block: {deltaLabel}
+            </p>
+          </CardContent>
+        </Card>
 
-            <Card className="bg-zinc-900 border-zinc-800">
-              <CardHeader>
-                <CardTitle className="text-zinc-400 text-sm">
-                  Volume Record
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-purple-500">
-                  {stats?.maxVolume}
-                  <span className="text-sm text-zinc-600 ml-1">kg</span>
-                </div>
-                <p className="text-xs text-zinc-500 mt-1">
-                  Heaviest session: {stats?.heaviestSession}
-                </p>
-              </CardContent>
-            </Card>
-          </>
-        )}
+        <Card className="bg-zinc-900 border-zinc-800">
+          <CardHeader>
+            <CardTitle className="text-zinc-400 text-sm">
+              Session Record
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-purple-500">
+              {stats?.maxVolume}
+              <span className="text-sm text-zinc-600 ml-1">
+                {isBodyweight ? "reps" : "kg"}
+              </span>
+            </div>
+            <p className="text-xs text-zinc-500 mt-1">
+              Top session: {stats?.heaviestSession}
+            </p>
+          </CardContent>
+        </Card>
 
         <Card className="bg-zinc-900 border-zinc-800">
           <CardHeader>

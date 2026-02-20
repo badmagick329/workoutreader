@@ -11,7 +11,7 @@ export function MetricCard({
 }: {
   title: string;
   value: string | number;
-  subtext: string;
+  subtext: React.ReactNode;
   icon: IconComponent;
   colorClass: string;
 }) {
@@ -25,7 +25,9 @@ export function MetricCard({
       </CardHeader>
       <CardContent>
         <div className="text-2xl font-bold text-zinc-100">{value}</div>
-        <p className="text-xs text-zinc-500 mt-1">{subtext}</p>
+        <div className="text-xs text-zinc-500 mt-1 leading-relaxed">
+          {subtext}
+        </div>
       </CardContent>
     </Card>
   );

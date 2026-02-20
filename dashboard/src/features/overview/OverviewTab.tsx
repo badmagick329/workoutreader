@@ -24,7 +24,23 @@ export function OverviewTab({ exercises }: { exercises: ExerciseData[] }) {
           <MetricCard
             title="Quality Score"
             value={metrics.qualityScore}
-            subtext={`42d block composite • ${metrics.anchorDate}`}
+            subtext={
+              <>
+                <div>
+                  Progression {metrics.progressionScore} • Consistency{" "}
+                  {metrics.consistencyScore} • Balance {metrics.balanceScore}
+                </div>
+                <div>
+                  Composite = P×0.45 + C×0.35 + B×0.20 • 42d vs prior 42d •{" "}
+                  {metrics.anchorDate}
+                </div>
+                <div>
+                  Consistency target{" "}
+                  {metrics.resolvedConsistencyTargetSessionsPerWeek.toFixed(1)}
+                  /wk ({metrics.consistencyTargetModeUsed})
+                </div>
+              </>
+            }
             icon={Activity}
             colorClass="text-emerald-500"
           />

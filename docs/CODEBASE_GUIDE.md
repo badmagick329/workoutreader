@@ -103,7 +103,10 @@ Examples:
   - `favoriteLift`: most frequent exercise in current block.
 - Overview cards currently display:
   - Total Tonnage (all-time)
-  - Quality Score
+  - Quality Score with transparent sub-scores:
+    - Progression / Consistency / Balance
+    - formula copy: `Composite = P×0.45 + C×0.35 + B×0.20`
+    - basis copy: `42d vs prior 42d` + anchor date
   - Block Momentum = `improvingCount - decliningCount`
   - Active Lifts
 - Trend chart (`dashboard/src/features/overview/selectors/getStrengthScoreSeries.ts`):
@@ -113,8 +116,15 @@ Examples:
 - Explorer metrics (`dashboard/src/features/explorer/selectors/getExplorerData.ts`):
   - Non-bodyweight: 1RM / max weight / volume.
   - Bodyweight: max reps / total reps (volume interpreted as reps).
+  - Also exposes block comparison fields from shared 42d model:
+    - `blockStatus` (`improving|stable|declining|emerging|phased-out`)
+    - `currentBlockMetric`, `previousBlockMetric`, `blockDeltaRatio`
 - Records tab (`dashboard/src/features/records/selectors/getSortedRecords.ts`):
-  - Sorted by latest PR date or exercise name.
+  - Displays block-status tag per exercise from shared 42d comparison.
+  - Date sort uses metric-relevant date:
+    - loaded exercises => max-weight PR date
+    - bodyweight exercises => max-reps PR date
+  - Name sort behavior unchanged.
 
 ## 6) Useful commands
 
@@ -140,14 +150,18 @@ bun run start
 - New window slicing in `src/analysis.ts` converts YYMMDD to UTC dates to avoid local timezone drift while stepping day ranges.
 - Barbell sets are normalized by adding 20kg centrally in `Exercise` constructor.
 - Dashboard API reparses raw text each request (no persistence/cache layer).
+- Selector layer now memoizes expensive derived analytics via module-level `WeakMap` caches keyed by input array identity + selector params + optional config.
 - Shared types in dashboard alias root class type: `ExerciseData = Exercise`.
 - Input quality is permissive; blank lines are removed, and partial exercise lines may produce zero sets.
 - Bodyweight exercise detection remains: max historical weight <= 1.
 - In progression comparison, bodyweight lifts use max reps; loaded lifts use best estimated 1RM.
-- Progress classification thresholds:
+- Progress classification thresholds (default config):
   - improving if change ratio > 1%
   - declining if change ratio < -1%
   - otherwise stable
+- Quality score defaults are centralized in `src/analysis.ts` via:
+  - `DEFAULT_ROTATION_QUALITY_CONFIG`
+  - optional override input `RotationQualityConfigInput`
 
 ## 8) If you need to extend this safely
 
@@ -174,6 +188,43 @@ bun run start
 - Updated Overview UI labels and values in:
   - `dashboard/src/features/overview/OverviewTab.tsx`
   - `dashboard/src/features/overview/components/StrengthScoreChart.tsx`
+- Added per-exercise block comparison helper in `src/analysis.ts`:
+  - `getExerciseBlockComparisons(...)`
+  - exports `ExerciseBlockComparison` and `ExerciseBlockStatus`
+- Updated Explorer sidebar to show:
+  - Current Block Peak
+  - Previous Block Peak
+  - Block Status + delta vs previous block
+- Updated Records cards to:
+  - replace `NEW!` with block-status tags
+  - sort/display metric date by exercise type (loaded vs bodyweight)
+- Phase 2 quality score transparency implemented in Overview UI:
+  - Quality card now surfaces `progressionScore`, `consistencyScore`, and `balanceScore`
+  - Added explicit formula + basis copy directly in the card (no modal/new page)
+  - Updated `MetricCard` subtext prop from `string` to `React.ReactNode` to support rich multi-line explanatory text
+- Phase 3 calibration/config groundwork implemented:
+  - Added shared analytics config in `src/analysis.ts`:
+    - `RotationQualityConfig`
+    - `RotationQualityConfigInput`
+    - `DEFAULT_ROTATION_QUALITY_CONFIG`
+  - `getRotationQualityMetrics(...)` and `getExerciseBlockComparisons(...)` accept optional config
+  - Dashboard selector entry points accept optional shared config pass-through
+  - Default behavior unchanged when config omitted
+  - Consistency target tunability remains internal-only (no UI settings)
+- Phase 4 robustness groundwork implemented:
+  - Added selector memoization in:
+    - `dashboard/src/features/overview/selectors/getOverviewMetrics.ts`
+    - `dashboard/src/features/overview/selectors/getStrengthScoreSeries.ts`
+    - `dashboard/src/features/explorer/selectors/getExplorerData.ts` (`getExplorerStats` path)
+    - `dashboard/src/features/records/selectors/getSortedRecords.ts`
+  - Added explicit server-cache decision criteria for `/api/exercises`:
+    - only evaluate server cache if parse+serialize p95 > 150ms and sustained load >= 2 req/s for 60s
+    - when implemented, invalidate cache on `data/input.txt` mtime change
+- Adaptive consistency-target mode added for Overview quality scoring:
+  - shared config now supports `consistencyTargetMode: "fixed" | "adaptive"`
+  - adaptive target uses median sessions/week from last 3 prior 42d blocks
+  - adaptive fallback target remains 4 sessions/week when prior history is insufficient
+  - Overview UI now shows resolved target value and mode for transparency
 
 ## 10) Quality score math (exact)
 
@@ -194,20 +245,21 @@ Current implementation in `src/analysis.ts`:
   - `progressionScore = round(clamp(50 + avgChangeRatio * 50, 0, 100))`
 - Consistency score:
   - `sessionsPerWeek = currentSessions / 6` (42 days = 6 weeks)
-  - `consistencyScore = round(clamp((sessionsPerWeek / 4) * 100, 0, 100))`
-  - 4 sessions/week maps to 100
+  - `resolvedConsistencyTarget = fixedTarget` in fixed mode
+  - `resolvedConsistencyTarget = median(sessions/week of last 3 prior 42d blocks)` in adaptive mode
+  - fallback to 4 sessions/week if adaptive history is insufficient
+  - `consistencyScore = round(clamp((sessionsPerWeek / resolvedConsistencyTarget) * 100, 0, 100))`
 - Balance score:
   - entropy over set-distribution across active lifts in current window
   - normalized by max entropy `log(activeExerciseCount)`
   - if only 1 active exercise => 100
 - Final composite:
-  - `qualityScore = round(clamp(progression*0.45 + consistency*0.35 + balance*0.2, 0, 100))`
+  - `qualityScore = round(clamp(progression*wP + consistency*wC + balance*wB, 0, 100))`
+  - default weights: `wP=0.45`, `wC=0.35`, `wB=0.20`
 
 ## 11) Open questions worth clarifying with repo owner
 
 - Should `YYMMDD` eventually migrate to `YYYYMMDD` for long-term ordering safety?
 - Should bodyweight default (`weight=1`) be explicit in docs/UI labels?
 - Should `/api/exercises` return cached/precomputed data for larger logs?
-- Should quality score weights (45/35/20) and thresholds (+/-1%) be configurable?
-- Should consistency target (4 sessions/week = 100) be personalized per user?
-- Should Explorer/Records adopt same 42-day comparison model in next phase?
+- Should phased-out records remain visually de-emphasized or get a dedicated filter in future UI overhaul?
