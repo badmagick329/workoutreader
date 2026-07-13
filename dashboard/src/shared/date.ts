@@ -12,3 +12,19 @@ export function isWithinLastDays(dateStr: string, days: number): boolean {
   threshold.setDate(threshold.getDate() - days);
   return valueDate > threshold;
 }
+
+export function formatWorkoutDate(dateStr: string): string {
+  return parseYYMMDD(dateStr).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+export function formatShortWorkoutDate(dateStr: string): string {
+  return parseYYMMDD(dateStr).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "2-digit",
+  });
+}

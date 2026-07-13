@@ -5,15 +5,17 @@ import type { ExerciseData } from "@/shared/workout-types";
 export function useExercises() {
   const [exercises, setExercises] = useState<ExerciseData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchExercises()
-      .then((data) => {
-        setExercises(data);
-        setLoading(false);
+      .then(setExercises)
+      .catch((err: unknown) => {
+        console.error(err);
+        setError("Workout data could not be loaded.");
       })
-      .catch((err) => console.error(err));
+      .finally(() => setLoading(false));
   }, []);
 
-  return { exercises, loading };
+  return { exercises, loading, error };
 }
