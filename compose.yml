@@ -1,0 +1,12 @@
+services:
+  workoutreader:
+    build: .
+    restart: unless-stopped
+    environment:
+      APP_HOST: ${APP_HOST:-0.0.0.0}
+      APP_PORT: ${APP_PORT:-3000}
+      DATA_DIR: /data
+    ports:
+      - "${HOST_PORT:-4131}:${APP_PORT:-3000}"
+    volumes:
+      - ./data:/data
