@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { Archive, RotateCcw } from "lucide-react";
+import { useMemo } from "react";
 import {
   formatChange,
   formatMetric,
@@ -10,7 +11,8 @@ import {
 import { formatShortWorkoutDate } from "@/shared/date";
 import type { ExerciseData } from "@/shared/workout-types";
 
-type SortMode = "signal" | "recent" | "name";
+export type ProgressSortMode = "signal" | "recent" | "name";
+export type ProgressArchiveFilter = "active" | "archived";
 
 const trendCopy: Record<LiftTrend, { label: string; description: string }> = {
   improving: { label: "Moving up", description: "last 3 vs previous 3" },
@@ -21,22 +23,45 @@ const trendCopy: Record<LiftTrend, { label: string; description: string }> = {
 
 export function ProgressView({
   exercises,
+  archivedExerciseNames,
+  sortMode,
+  archiveFilter,
+  query,
   onOpenLift,
+  onSetArchived,
+  onChangeSort,
+  onChangeArchiveFilter,
+  onChangeQuery,
 }: {
   exercises: ExerciseData[];
+  archivedExerciseNames: string[];
+  sortMode: ProgressSortMode;
+  archiveFilter: ProgressArchiveFilter;
+  query: string;
   onOpenLift: (name: string) => void;
+  onSetArchived: (name: string, archived: boolean) => Promise<void>;
+  onChangeSort: (sort: ProgressSortMode) => void;
+  onChangeArchiveFilter: (filter: ProgressArchiveFilter) => void;
+  onChangeQuery: (query: string) => void;
 }) {
   const report = useMemo(() => getProgressReport(exercises), [exercises]);
-  const [query, setQuery] = useState("");
-  const [sortMode, setSortMode] = useState<SortMode>("signal");
+  const archivedNames = useMemo(() => new Set(archivedExerciseNames), [archivedExerciseNames]);
+  const reportLifts = useMemo(
+    () => report.lifts.filter((lift) => !archivedNames.has(lift.name)),
+    [archivedNames, report.lifts],
+  );
 
   const lifts = useMemo(() => {
     const normalized = query.trim().toLowerCase();
-    const filtered = report.lifts.filter((lift) =>
-      lift.name.toLowerCase().includes(normalized),
+    const filtered = report.lifts.filter(
+      (lift) =>
+        lift.name.toLowerCase().includes(normalized) &&
+        (archiveFilter === "archived"
+          ? archivedNames.has(lift.name)
+          : !archivedNames.has(lift.name)),
     );
     return [...filtered].sort((a, b) => compareLifts(a, b, sortMode));
-  }, [query, report.lifts, sortMode]);
+  }, [archiveFilter, archivedNames, query, report.lifts, sortMode]);
 
   return (
     <main className="page-content">
@@ -53,13 +78,13 @@ export function ProgressView({
         {(["improving", "holding", "declining"] as const).map((trend) => (
           <div className={`trend-summary trend-${trend}`} key={trend}>
             <span>{trendCopy[trend].label}</span>
-            <strong>{report.byTrend[trend].length}</strong>
+            <strong>{reportLifts.filter((lift) => lift.trend === trend).length}</strong>
             <small>{trendCopy[trend].description}</small>
           </div>
         ))}
         <div className="trend-summary trend-baseline">
           <span>Building baseline</span>
-          <strong>{report.baseline.length}</strong>
+          <strong>{reportLifts.filter((lift) => lift.trend === "baseline").length}</strong>
           <small>not judged yet</small>
         </div>
       </section>
@@ -76,7 +101,7 @@ export function ProgressView({
             <input
               id="lift-search"
               value={query}
-              onChange={(event) => setQuery(event.target.value)}
+              onChange={(event) => onChangeQuery(event.target.value)}
               placeholder="Search lifts"
             />
             <label className="visually-hidden" htmlFor="lift-sort">
@@ -85,12 +110,28 @@ export function ProgressView({
             <select
               id="lift-sort"
               value={sortMode}
-              onChange={(event) => setSortMode(event.target.value as SortMode)}
+              onChange={(event) => onChangeSort(event.target.value as ProgressSortMode)}
             >
               <option value="signal">Sort: signal</option>
               <option value="recent">Sort: recent</option>
               <option value="name">Sort: name</option>
             </select>
+            <div className="archive-filter" aria-label="Lift visibility">
+              <button
+                type="button"
+                className={archiveFilter === "active" ? "active" : ""}
+                onClick={() => onChangeArchiveFilter("active")}
+              >
+                Active
+              </button>
+              <button
+                type="button"
+                className={archiveFilter === "archived" ? "active" : ""}
+                onClick={() => onChangeArchiveFilter("archived")}
+              >
+                Archived
+              </button>
+            </div>
           </div>
         </div>
 
@@ -103,16 +144,25 @@ export function ProgressView({
                 <th>Evidence</th>
                 <th>Latest top set</th>
                 <th>Last trained</th>
+                <th aria-label="Archive action" />
               </tr>
             </thead>
             <tbody>
               {lifts.map((lift) => (
-                <LiftRow key={lift.name} lift={lift} onOpen={() => onOpenLift(lift.name)} />
+                <LiftRow
+                  key={lift.name}
+                  lift={lift}
+                  isArchived={archivedNames.has(lift.name)}
+                  onOpen={() => onOpenLift(lift.name)}
+                  onSetArchived={onSetArchived}
+                />
               ))}
             </tbody>
           </table>
           {lifts.length === 0 && (
-            <p className="empty-state">No lifts match that search.</p>
+            <p className="empty-state">
+              {archiveFilter === "archived" ? "No archived lifts." : "No lifts match that search."}
+            </p>
           )}
         </div>
       </section>
@@ -120,7 +170,17 @@ export function ProgressView({
   );
 }
 
-function LiftRow({ lift, onOpen }: { lift: LiftSummary; onOpen: () => void }) {
+function LiftRow({
+  lift,
+  isArchived,
+  onOpen,
+  onSetArchived,
+}: {
+  lift: LiftSummary;
+  isArchived: boolean;
+  onOpen: () => void;
+  onSetArchived: (name: string, archived: boolean) => Promise<void>;
+}) {
   const copy = trendCopy[lift.trend];
   const evidence =
     lift.recentMedian !== null && lift.previousMedian !== null
@@ -143,11 +203,22 @@ function LiftRow({ lift, onOpen }: { lift: LiftSummary; onOpen: () => void }) {
       <td className="evidence-cell">{evidence}</td>
       <td>{formatSet(lift.latest.topSet, lift.isBodyweight)}</td>
       <td>{formatShortWorkoutDate(lift.latest.date)}</td>
+      <td className="lift-action-cell">
+        <button
+          className="lift-archive-action"
+          type="button"
+          aria-label={`${isArchived ? "Restore" : "Archive"} ${lift.name}`}
+          title={isArchived ? "Restore lift" : "Archive lift"}
+          onClick={() => void onSetArchived(lift.name, !isArchived)}
+        >
+          {isArchived ? <RotateCcw size={15} /> : <Archive size={15} />}
+        </button>
+      </td>
     </tr>
   );
 }
 
-function compareLifts(a: LiftSummary, b: LiftSummary, sortMode: SortMode): number {
+function compareLifts(a: LiftSummary, b: LiftSummary, sortMode: ProgressSortMode): number {
   if (sortMode === "name") return a.name.localeCompare(b.name);
   if (sortMode === "recent") return b.latest.date.localeCompare(a.latest.date);
 

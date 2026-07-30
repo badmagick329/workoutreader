@@ -9,12 +9,18 @@ import type { ExerciseData } from "@/shared/workout-types";
 
 export function SessionsView({
   exercises,
+  archivedExerciseNames,
   onOpenLift,
 }: {
   exercises: ExerciseData[];
+  archivedExerciseNames: string[];
   onOpenLift: (name: string) => void;
 }) {
   const sessions = useMemo(() => getWorkoutSessions(exercises), [exercises]);
+  const archivedNames = useMemo(
+    () => new Set(archivedExerciseNames),
+    [archivedExerciseNames],
+  );
 
   return (
     <main className="page-content">
@@ -36,9 +42,14 @@ export function SessionsView({
             <div className="session-exercises">
               {session.exercises.map((exercise) => (
                 <div className="session-exercise" key={exercise.name}>
-                  <button type="button" onClick={() => onOpenLift(exercise.name)}>
-                    {exercise.name}
-                  </button>
+                  <div className="session-exercise-title">
+                    <button type="button" onClick={() => onOpenLift(exercise.name)}>
+                      {exercise.name}
+                    </button>
+                    {archivedNames.has(exercise.name) && (
+                      <span className="archived-badge">Archived</span>
+                    )}
+                  </div>
                   <p>{exercise.sets.map((set) => formatSet(set, exercise.isBodyweight)).join(" · ")}</p>
                   <span>{formatMetric(exercise.metric, exercise.isBodyweight)}</span>
                 </div>

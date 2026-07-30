@@ -21,10 +21,14 @@ import {
 export function LiftDetail({
   exercises,
   name,
+  isArchived,
+  onSetArchived,
   onBack,
 }: {
   exercises: ExerciseData[];
   name: string;
+  isArchived: boolean;
+  onSetArchived: (name: string, archived: boolean) => Promise<void>;
   onBack: () => void;
 }) {
   const lift = useMemo(
@@ -44,10 +48,27 @@ export function LiftDetail({
     );
   }
 
-  return <LiftReview lift={lift} onBack={onBack} />;
+  return (
+    <LiftReview
+      lift={lift}
+      isArchived={isArchived}
+      onSetArchived={onSetArchived}
+      onBack={onBack}
+    />
+  );
 }
 
-function LiftReview({ lift, onBack }: { lift: LiftSummary; onBack: () => void }) {
+function LiftReview({
+  lift,
+  isArchived,
+  onSetArchived,
+  onBack,
+}: {
+  lift: LiftSummary;
+  isArchived: boolean;
+  onSetArchived: (name: string, archived: boolean) => Promise<void>;
+  onBack: () => void;
+}) {
   const unit = lift.isBodyweight ? "reps" : "kg e1RM";
   const chartData = lift.sessions.map((session) => ({
     date: session.date,
@@ -72,10 +93,19 @@ function LiftReview({ lift, onBack }: { lift: LiftSummary; onBack: () => void })
           <h1>{lift.name}</h1>
           <p className="intro-copy">{lift.sessions.length} sessions · {trendDescription}</p>
         </div>
-        <div className="personal-best">
-          <span>All-time best</span>
-          <strong>{formatMetric(lift.personalBest.metric, lift.isBodyweight)}</strong>
-          <small>{formatSet(lift.personalBest.topSet, lift.isBodyweight)} · {formatWorkoutDate(lift.personalBest.date)}</small>
+        <div className="lift-actions">
+          <div className="personal-best">
+            <span>All-time best</span>
+            <strong>{formatMetric(lift.personalBest.metric, lift.isBodyweight)}</strong>
+            <small>{formatSet(lift.personalBest.topSet, lift.isBodyweight)} · {formatWorkoutDate(lift.personalBest.date)}</small>
+          </div>
+          <button
+            className={isArchived ? "restore-button" : "archive-button"}
+            type="button"
+            onClick={() => void onSetArchived(lift.name, !isArchived)}
+          >
+            {isArchived ? "Restore lift" : "Archive lift"}
+          </button>
         </div>
       </section>
 
