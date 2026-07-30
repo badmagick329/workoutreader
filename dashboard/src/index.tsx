@@ -3,14 +3,21 @@ import index from "./index.html";
 import { splitLinesByDate } from "../../src/parser";
 import { Exercise } from "../../src/exercise";
 
+const dataDir = process.env.DATA_DIR ?? "../data";
+const inputPath = `${dataDir}/input.txt`;
+const host = process.env.APP_HOST ?? "0.0.0.0";
+const port = Number(process.env.APP_PORT ?? "3000");
+
 const server = serve({
+  hostname: host,
+  port,
   routes: {
     // Serve index.html for all unmatched routes.
     "/*": index,
 
     "/api/exercises": async () => {
       try {
-        const text = await Bun.file("../data/input.txt").text();
+        const text = await Bun.file(inputPath).text();
         const splitLines = splitLinesByDate(text);
         let exercises: Exercise[] = [];
         for (const [date, lines] of Array.from(splitLines)) {
