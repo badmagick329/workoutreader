@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { fetchExercises } from "@/services/exerciseApi";
 import type { ExerciseData } from "@/shared/workout-types";
 
@@ -7,8 +7,9 @@ export function useExercises() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchExercises()
+  const reload = useCallback(() => {
+    setError(null);
+    return fetchExercises()
       .then(setExercises)
       .catch((err: unknown) => {
         console.error(err);
@@ -17,5 +18,9 @@ export function useExercises() {
       .finally(() => setLoading(false));
   }, []);
 
-  return { exercises, loading, error };
+  useEffect(() => {
+    void reload();
+  }, [reload]);
+
+  return { exercises, loading, error, reload };
 }

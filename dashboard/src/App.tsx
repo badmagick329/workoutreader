@@ -3,23 +3,24 @@ import { CommandPalette } from "@/components/CommandPalette";
 import { LiftDetail } from "@/features/lifts/LiftDetail";
 import { ProgressView } from "@/features/progress/ProgressView";
 import { SessionsView } from "@/features/sessions/SessionsView";
+import { WorkoutInputView } from "@/features/input/WorkoutInputView";
 import { getProgressReport } from "@/features/training/training-analysis";
 import { useExercises } from "@/hooks/useExercises";
 import "./index.css";
 
-type View = "progress" | "sessions";
+type View = "progress" | "sessions" | "input";
 type LocationState = { view: View; lift: string | null };
 
 function readLocationState(): LocationState {
   const params = new URLSearchParams(window.location.search);
   return {
-    view: params.get("view") === "sessions" ? "sessions" : "progress",
+    view: params.get("view") === "sessions" ? "sessions" : params.get("view") === "input" ? "input" : "progress",
     lift: params.get("lift"),
   };
 }
 
 export function App() {
-  const { exercises, loading, error } = useExercises();
+  const { exercises, loading, error, reload } = useExercises();
   const [location, setLocation] = useState<LocationState>(() => readLocationState());
   const [searchOpen, setSearchOpen] = useState(false);
   const lifts = useMemo(() => getProgressReport(exercises).lifts, [exercises]);
@@ -76,6 +77,13 @@ export function App() {
           >
             Sessions
           </button>
+          <button
+            type="button"
+            className={location.view === "input" && !location.lift ? "active" : ""}
+            onClick={() => navigate({ view: "input", lift: null })}
+          >
+            Input
+          </button>
         </nav>
         <button className="header-search" type="button" onClick={() => setSearchOpen(true)}>
           Search <kbd>⌘ K</kbd>
@@ -84,6 +92,8 @@ export function App() {
 
       {location.lift ? (
         <LiftDetail exercises={exercises} name={location.lift} onBack={() => navigate({ view: location.view, lift: null })} />
+      ) : location.view === "input" ? (
+        <WorkoutInputView onSaved={() => void reload()} />
       ) : location.view === "progress" ? (
         <ProgressView exercises={exercises} onOpenLift={openLift} />
       ) : (

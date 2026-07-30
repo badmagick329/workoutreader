@@ -8,6 +8,15 @@ const inputPath = `${dataDir}/input.txt`;
 const host = process.env.APP_HOST ?? "0.0.0.0";
 const port = Number(process.env.APP_PORT ?? "3000");
 
+const maxWorkoutInputBytes = 1_000_000;
+
+function validateWorkoutInput(text: string): void {
+  const splitLines = splitLinesByDate(text);
+  for (const [date, lines] of splitLines) {
+    for (const line of lines) Exercise.fromLine(date, line);
+  }
+}
+
 const server = serve({
   hostname: host,
   port,
@@ -31,6 +40,43 @@ const server = serve({
         console.error(e);
         return new Response("Error parsing data", { status: 500 });
       }
+    },
+
+    "/api/workout-input": {
+      async GET() {
+        try {
+          return new Response(await Bun.file(inputPath).text(), {
+            headers: { "Content-Type": "text/plain; charset=utf-8" },
+          });
+        } catch (error) {
+          console.error(error);
+          return new Response("Workout input could not be read", { status: 500 });
+        }
+      },
+      async PUT(req) {
+        let text: unknown;
+        try {
+          ({ text } = (await req.json()) as { text?: unknown });
+        } catch {
+          return new Response("Workout input must be valid JSON", { status: 400 });
+        }
+        if (typeof text !== "string") return new Response("Workout input must be text", { status: 400 });
+        if (new TextEncoder().encode(text).byteLength > maxWorkoutInputBytes) {
+          return new Response("Workout input is too large", { status: 413 });
+        }
+        try {
+          validateWorkoutInput(text);
+        } catch (error) {
+          return new Response(error instanceof Error ? error.message : "Workout input is invalid", { status: 400 });
+        }
+        try {
+          await Bun.write(inputPath, text);
+          return Response.json({ text });
+        } catch (error) {
+          console.error(error);
+          return new Response("Workout input could not be saved", { status: 500 });
+        }
+      },
     },
 
     "/api/hello": {

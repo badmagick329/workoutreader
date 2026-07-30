@@ -139,3 +139,11 @@ td { padding: 18px 14px; border-bottom: 1px solid #292929; color: #c9c6be; font-
   .detail-metrics > div:last-child { border-bottom: 0; }
   .performance-chart { height: 290px; padding-right: 10px; }
 }
+
+.input-editor-page { max-width: 1000px; }
+.workout-input { display: block; width: 100%; min-height: 520px; resize: vertical; border: 1px solid #363636; background: #151515; color: #f2eee5; padding: 18px; font: 14px/1.6 ui-monospace, SFMono-Regular, Consolas, monospace; outline: none; }
+.workout-input:focus { border-color: #d7ff00; box-shadow: 0 0 0 2px #d7ff0022; }
+.input-editor-actions { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 16px; color: #96938d; font-size: 12px; font-weight: 800; }
+.input-save-button { border: 1px solid #d7ff00; background: #d7ff00; color: #0d0d0d; padding: 10px 18px; font-size: 12px; font-weight: 900; }
+.input-save-button:disabled { cursor: not-allowed; opacity: .45; }
+.input-editor-error { border: 1px solid #8f4136; color: #ff8875; padding: 12px; margin: 0 0 16px; font-size: 13px; }
