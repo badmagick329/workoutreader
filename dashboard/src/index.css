@@ -131,6 +131,8 @@ td { padding: 18px 14px; border-bottom: 1px solid #292929; color: #c9c6be; font-
 .input-save-button:disabled { cursor: not-allowed; opacity: .45; }
 .input-editor-error { border: 1px solid #8f4136; color: #ff8875; padding: 12px; margin: 0 0 16px; font-size: 13px; }
 .workout-template-list { display: grid; gap: 8px; margin-top: 24px; }
+.workout-template-row { display: flex; gap: 8px; }
+.workout-template-row .workout-template { flex: 1; }
 .workout-template { border: 1px solid #363636; background: #151515; color: #f2eee5; padding: 16px; text-align: left; }
 .workout-template:hover { border-color: #d7ff00; }
 .workout-template strong, .workout-template span { display: block; }

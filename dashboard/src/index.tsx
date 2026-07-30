@@ -10,6 +10,7 @@ type ExerciseSettings = {
 const dataDir = process.env.DATA_DIR ?? "../data";
 const inputPath = `${dataDir}/input.txt`;
 const draftPath = `${dataDir}/current-workout.json`;
+const nextWorkoutPath = `${dataDir}/next-workout.json`;
 const settingsPath = `${dataDir}/exercise-settings.json`;
 const host = process.env.APP_HOST ?? "0.0.0.0";
 const port = Number(process.env.APP_PORT ?? "3000");
@@ -55,6 +56,16 @@ async function readDraft(): Promise<Workout | null> {
   const draft = JSON.parse(text) as Workout;
   validateWorkout(draft);
   return draft;
+}
+
+async function readNextWorkout(): Promise<Workout | null> {
+  const file = Bun.file(nextWorkoutPath);
+  if (!(await file.exists())) return null;
+  const text = await file.text();
+  if (!text.trim()) return null;
+  const workout = JSON.parse(text) as Workout;
+  validateWorkout(workout);
+  return workout;
 }
 
 function parseExercises(text: string): Exercise[] {
@@ -233,6 +244,31 @@ const server = serve({
           console.error(error);
           return new Response("Workout could not be finished", { status: 500 });
         }
+      },
+    },
+
+    "/api/next-workout": {
+      async GET() {
+        try {
+          return Response.json(await readNextWorkout());
+        } catch (error) {
+          console.error(error);
+          return new Response("Next workout could not be loaded", { status: 500 });
+        }
+      },
+      async PUT(req) {
+        try {
+          const workout = (await req.json()) as Workout;
+          validateWorkout(workout);
+          await Bun.write(nextWorkoutPath, `${JSON.stringify(workout, null, 2)}\n`);
+          return Response.json(workout);
+        } catch (error) {
+          return new Response(error instanceof Error ? error.message : "Next workout is invalid", { status: 400 });
+        }
+      },
+      async DELETE() {
+        await Bun.write(nextWorkoutPath, "");
+        return new Response(null, { status: 204 });
       },
     },
 

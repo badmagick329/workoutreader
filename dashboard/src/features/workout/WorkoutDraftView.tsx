@@ -1,10 +1,13 @@
 import { useEffect, useState } from "react";
 import {
   clearWorkoutDraft,
+  clearNextWorkout,
   fetchWorkoutDraft,
+  fetchNextWorkout,
   fetchWorkouts,
   finishWorkoutDraft,
   saveWorkoutDraft,
+  saveNextWorkout,
   type Workout,
 } from "@/services/exerciseApi";
 
@@ -15,6 +18,7 @@ const logDate = (date: string) => date.replaceAll("-", "").slice(2);
 export function WorkoutDraftView({ onFinished }: { onFinished: () => void }) {
   const [workouts, setWorkouts] = useState<Workout[]>([]);
   const [draft, setDraft] = useState<Workout | null>(null);
+  const [nextWorkout, setNextWorkout] = useState<Workout | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [conflict, setConflict] = useState(false);
@@ -23,9 +27,10 @@ export function WorkoutDraftView({ onFinished }: { onFinished: () => void }) {
   const load = async () => {
     setLoading(true);
     try {
-      const [nextWorkouts, nextDraft] = await Promise.all([fetchWorkouts(), fetchWorkoutDraft()]);
+      const [nextWorkouts, nextDraft, savedNextWorkout] = await Promise.all([fetchWorkouts(), fetchWorkoutDraft(), fetchNextWorkout()]);
       setWorkouts(nextWorkouts);
       setDraft(nextDraft);
+      setNextWorkout(savedNextWorkout);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Workout data could not be loaded.");
     } finally { setLoading(false); }
@@ -33,9 +38,19 @@ export function WorkoutDraftView({ onFinished }: { onFinished: () => void }) {
 
   useEffect(() => { void load(); }, []);
 
-  const start = (workout?: Workout) => {
-    setDraft({ date: today(), lines: workout?.lines ?? [] });
+  const start = async (workout?: Workout, clearNext = false) => {
+    const nextDraft = { date: today(), lines: workout?.lines ?? [] };
+    setSaving(true); setError(null);
+    try {
+      await saveWorkoutDraft(nextDraft);
+      if (clearNext) { await clearNextWorkout(); setNextWorkout(null); }
+      setDraft(nextDraft);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Workout draft could not be started."); }
+    finally { setSaving(false); }
     setConflict(false);
+  };
+  const markNext = async (workout: Workout) => {
+    try { await saveNextWorkout(workout); setNextWorkout(workout); } catch (cause) { setError(cause instanceof Error ? cause.message : "Next workout could not be saved."); }
   };
   const save = async () => {
     if (!draft) return;
@@ -61,11 +76,12 @@ export function WorkoutDraftView({ onFinished }: { onFinished: () => void }) {
   if (!draft) return <main className="page-content workout-picker">
     <div className="page-intro"><div><p className="eyebrow">New workout</p><h1>Start from a previous session</h1><p className="intro-copy">Choose a past workout to copy its exercises, or begin empty.</p></div></div>
     {error && <p className="input-editor-error" role="alert">{error}</p>}
-    <button className="input-save-button" type="button" onClick={() => start()}>Start empty workout</button>
+    {nextWorkout && <button className="input-save-button" type="button" onClick={() => void start(nextWorkout, true)}>Start next workout: {nextWorkout.lines[0] ?? "saved template"}</button>}
+    <button className="archive-button" type="button" onClick={() => void start()}>Start empty workout</button>
     <div className="workout-template-list">
-      {workouts.map((workout, index) => <button type="button" className="workout-template" key={`${workout.date}-${index}`} onClick={() => start(workout)}>
+      {workouts.map((workout, index) => <div className="workout-template-row" key={`${workout.date}-${index}`}><button type="button" className="workout-template" onClick={() => void start(workout)}>
         <strong>{inputDate(workout.date)}</strong><span>{workout.lines.join(" · ") || "No exercises"}</span>
-      </button>)}
+      </button><button type="button" className="archive-button" onClick={() => void markNext(workout)}>Set as next</button></div>)}
     </div>
   </main>;
 

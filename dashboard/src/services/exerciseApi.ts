@@ -60,6 +60,22 @@ export async function finishWorkoutDraft(conflict?: "merge" | "overwrite"): Prom
   return { conflict: false };
 }
 
+export async function fetchNextWorkout(): Promise<Workout | null> {
+  const response = await fetch("/api/next-workout");
+  if (!response.ok) return responseError(response);
+  return response.json() as Promise<Workout | null>;
+}
+
+export async function saveNextWorkout(workout: Workout): Promise<void> {
+  const response = await fetch("/api/next-workout", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(workout) });
+  if (!response.ok) return responseError(response);
+}
+
+export async function clearNextWorkout(): Promise<void> {
+  const response = await fetch("/api/next-workout", { method: "DELETE" });
+  if (!response.ok) return responseError(response);
+}
+
 export async function fetchExerciseSettings(): Promise<ExerciseSettings> {
   const response = await fetch("/api/exercise-settings");
   if (!response.ok) throw new Error(`Exercise settings API returned ${response.status}`);
