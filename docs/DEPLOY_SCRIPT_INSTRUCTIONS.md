@@ -1,6 +1,6 @@
 # Deploy script instruction
 
-Add a `bun run deploy` script for this app.
+Add a one-command deploy script appropriate to this app's runtime and package manager.
 
 - Read deployment settings from ignored `.env.deploy`; commit only `.env.deploy.example` with blank values.
 - Do not hard-code host names, IPs, ports, paths, credentials, or secrets in tracked files.
