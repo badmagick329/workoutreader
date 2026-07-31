@@ -19,6 +19,7 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 .env
 .env.*
 !.env.example
+!.env.deploy.example
 
 # local credentials and certificates
 *.key

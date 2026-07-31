@@ -3,6 +3,9 @@
   "module": "index.ts",
   "type": "module",
   "private": true,
+  "scripts": {
+    "deploy": "bun run scripts/deploy.ts"
+  },
   "devDependencies": {
     "@types/bun": "latest"
   },

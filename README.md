@@ -33,3 +33,14 @@ Back up by stopping the app if a consistent snapshot is needed, then copy `./dat
 your backup location. Restore by stopping the app, replacing `./data` with the backup,
 and starting it again. Rebuilding or recreating the container does not delete data in
 `./data`.
+
+## Deploy
+
+Copy `.env.deploy.example` to the ignored `.env.deploy`, set `DEPLOY_HOST` and
+`DEPLOY_PATH`, then run:
+
+```bash
+bun run deploy
+```
+
+Set `DEPLOY_HEALTH_URL` if the deployment should also verify a server-local URL.
