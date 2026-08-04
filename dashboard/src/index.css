@@ -11,7 +11,7 @@
 button, input, select { font: inherit; }
 button { cursor: pointer; }
 
-.app-shell { min-height: 100vh; background: #0d0d0d; }
+.app-shell { min-height: 100vh; overflow-x: clip; background: #0d0d0d; }
 .site-header { height: 78px; max-width: 1440px; margin: 0 auto; padding: 0 42px; display: flex; align-items: center; border-bottom: 1px solid #292929; gap: 42px; }
 .wordmark { appearance: none; border: 0; background: transparent; color: #f2eee5; padding: 0; letter-spacing: -0.07em; font-size: 21px; font-weight: 900; line-height: 1; }
 .wordmark span { color: #8a8a8a; }
@@ -146,10 +146,10 @@ td { padding: 18px 14px; border-bottom: 1px solid #292929; color: #c9c6be; font-
 @media (max-width: 800px) {
   .site-header { height: 64px; padding: 0 20px; gap: 14px; position: relative; }
   .wordmark { font-size: 17px; }
-  .desktop-nav { display: none; }
+  .site-header .desktop-nav { display: none; }
   .mobile-menu-button { display: block; margin-left: auto; border: 1px solid #414141; background: #171717; color: #f2eee5; padding: 9px 12px; font-size: 12px; font-weight: 800; }
   .mobile-menu-backdrop { display: block; position: fixed; inset: 64px 0 0; z-index: 10; border: 0; background: #00000099; }
-  .mobile-nav { display: grid; position: fixed; z-index: 11; top: 76px; right: 16px; left: 16px; height: auto; border: 1px solid #414141; background: #171717; box-shadow: 0 20px 60px #000; padding: 8px; }
+  .site-header .mobile-nav { display: grid; position: fixed; z-index: 11; top: 76px; right: 16px; left: 16px; height: auto; border: 1px solid #414141; background: #171717; box-shadow: 0 20px 60px #000; padding: 8px; }
   .mobile-nav button { border: 0; border-left: 2px solid transparent; background: transparent; color: #c9c6be; padding: 14px 12px; text-align: left; font-size: 15px; font-weight: 800; }
   .mobile-nav button.active { border-left-color: #d7ff00; color: #f2eee5; }
   .header-search { display: none; }
