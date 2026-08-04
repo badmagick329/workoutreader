@@ -143,9 +143,9 @@ td { padding: 18px 14px; border-bottom: 1px solid #292929; color: #c9c6be; font-
 @keyframes pulse { from { opacity: .25; } to { opacity: 1; } }
 
 @media (max-width: 800px) {
-  .site-header { height: 64px; padding: 0 20px; gap: 24px; }
+  .site-header { height: 64px; padding: 0 20px; gap: 14px; }
   .wordmark { font-size: 17px; }
-  .site-header nav { gap: 17px; }
+  .site-header nav { gap: 17px; min-width: 0; overflow-x: auto; }
   .header-search { display: none; }
   .page-content { padding: 42px 20px 60px; }
   .page-intro, .lift-hero { display: block; margin-bottom: 38px; }
@@ -170,4 +170,13 @@ td { padding: 18px 14px; border-bottom: 1px solid #292929; color: #c9c6be; font-
   .detail-metrics > div { border-right: 0; border-bottom: 1px solid #393939; }
   .detail-metrics > div:last-child { border-bottom: 0; }
   .performance-chart { height: 290px; padding-right: 10px; }
+  .workout-template-row { flex-direction: column; gap: 6px; }
+  .workout-template { min-width: 0; }
+  .workout-template span { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.5; }
+  .workout-template-row .archive-button { width: 100%; min-height: 42px; }
+  .workout-picker > .input-save-button,
+  .workout-picker > .archive-button { width: 100%; min-height: 46px; margin-bottom: 8px; }
+  .workout-input { min-height: 380px; }
+  .input-editor-actions { align-items: stretch; flex-direction: column; }
+  .input-editor-actions > div { display: grid; gap: 8px; grid-template-columns: 1fr 1fr; }
 }
