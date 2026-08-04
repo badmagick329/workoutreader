@@ -47,6 +47,7 @@ export function App() {
   const archive = useExerciseArchive();
   const [location, setLocation] = useState<LocationState>(() => readLocationState());
   const [searchOpen, setSearchOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const lifts = useMemo(
     () =>
       getProgressReport(exercises).lifts.filter(
@@ -103,6 +104,10 @@ export function App() {
   }, []);
 
   const openLift = (name: string) => navigate({ ...location, lift: name });
+  const selectView = (view: View) => {
+    navigate({ ...location, view, lift: null });
+    setMenuOpen(false);
+  };
 
   if (loading || archive.loading) return <LoadingState />;
   if (error) return <ErrorState message={error} />;
@@ -114,34 +119,18 @@ export function App() {
         <button
           className="wordmark"
           type="button"
-          onClick={() => navigate({ ...location, view: "progress", lift: null })}
+          onClick={() => selectView("progress")}
         >
           <span>WORKOUT</span><strong>REVIEW</strong>
         </button>
-        <nav aria-label="Primary navigation">
-          <button
-            type="button"
-            className={location.view === "progress" && !location.lift ? "active" : ""}
-            onClick={() => navigate({ ...location, view: "progress", lift: null })}
-          >
-            Progress
-          </button>
-          <button
-            type="button"
-            className={location.view === "sessions" && !location.lift ? "active" : ""}
-            onClick={() => navigate({ ...location, view: "sessions", lift: null })}
-          >
-            Sessions
-          </button>
-          <button type="button" className={location.view === "workout" && !location.lift ? "active" : ""} onClick={() => navigate({ ...location, view: "workout", lift: null })}>Workout</button>
-          <button
-            type="button"
-            className={location.view === "input" && !location.lift ? "active" : ""}
-            onClick={() => navigate({ ...location, view: "input", lift: null })}
-          >
-            Edit log
-          </button>
-        </nav>
+        <Navigation location={location} onSelect={selectView} className="desktop-nav" />
+        <button className="mobile-menu-button" type="button" aria-expanded={menuOpen} aria-controls="mobile-menu" onClick={() => setMenuOpen((open) => !open)}>
+          Menu
+        </button>
+        {menuOpen && <>
+          <button className="mobile-menu-backdrop" type="button" aria-label="Close menu" onClick={() => setMenuOpen(false)} />
+          <Navigation id="mobile-menu" location={location} onSelect={selectView} className="mobile-nav" />
+        </>}
         <button className="header-search" type="button" onClick={() => setSearchOpen(true)}>
           Search <kbd>⌘ K</kbd>
         </button>
@@ -185,6 +174,26 @@ export function App() {
       <CommandPalette open={searchOpen} lifts={lifts} onClose={() => setSearchOpen(false)} onOpenLift={openLift} />
     </div>
   );
+}
+
+function Navigation({
+  className,
+  id,
+  location,
+  onSelect,
+}: {
+  className: string;
+  id?: string;
+  location: LocationState;
+  onSelect: (view: View) => void;
+}) {
+  return <nav id={id} className={className} aria-label="Primary navigation">
+    {(["progress", "sessions", "workout", "input"] as const).map((view) => (
+      <button key={view} type="button" className={location.view === view && !location.lift ? "active" : ""} onClick={() => onSelect(view)}>
+        {view === "input" ? "Edit log" : `${view[0].toUpperCase()}${view.slice(1)}`}
+      </button>
+    ))}
+  </nav>;
 }
 
 function LoadingState() {

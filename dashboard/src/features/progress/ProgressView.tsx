@@ -189,21 +189,21 @@ function LiftRow({
 
   return (
     <tr className="lift-row">
-      <td>
+      <td data-label="Lift">
         <button type="button" className="lift-name" onClick={onOpen}>
           {lift.name}
         </button>
       </td>
-      <td>
+      <td data-label="Direction">
         <span className={`trend-label trend-${lift.trend}`}>{copy.label}</span>
         {lift.changeRatio !== null && (
           <span className="change-value">{formatChange(lift.changeRatio)}</span>
         )}
       </td>
-      <td className="evidence-cell">{evidence}</td>
-      <td>{formatSet(lift.latest.topSet, lift.isBodyweight)}</td>
-      <td>{formatShortWorkoutDate(lift.latest.date)}</td>
-      <td className="lift-action-cell">
+      <td className="evidence-cell" data-label="Evidence">{evidence}</td>
+      <td data-label="Latest top set">{formatSet(lift.latest.topSet, lift.isBodyweight)}</td>
+      <td data-label="Last trained">{formatShortWorkoutDate(lift.latest.date)}</td>
+      <td className="lift-action-cell" data-label="Actions">
         <button
           className="lift-archive-action"
           type="button"
