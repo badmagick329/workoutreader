@@ -73,11 +73,13 @@ td { padding: 18px 14px; border-bottom: 1px solid #292929; color: #c9c6be; font-
 .lift-archive-action:hover, .lift-archive-action:focus-visible { color: #0d0d0d; border-color: #d7ff00; background: #d7ff00; outline: none; }
 .empty-state { color: #7e7b76; padding: 24px 0; font-size: 14px; }
 
-.session-list { border-top: 2px solid #f2eee5; }
-.session-entry { border-bottom: 1px solid #333; padding: 28px 0 30px; display: grid; grid-template-columns: 180px 1fr; gap: 36px; }
+.session-list { display: grid; gap: 24px; }
+.session-entry { border: 1px solid #393939; background: #121212; min-width: 0; }
+.session-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 20px; background: #1b1b1b; border-bottom: 1px solid #393939; }
+.session-label { margin: 0 0 8px; color: #d7ff00; font-size: 10px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
 .session-header time { display: block; color: #f2eee5; font-size: 16px; font-weight: 800; letter-spacing: -.025em; }
 .session-header span { color: #777571; display: block; margin-top: 8px; font-size: 12px; }
-.session-exercises { display: grid; gap: 11px; }
+.session-exercises { display: grid; gap: 11px; padding: 8px 20px 20px; }
 .session-exercise { display: grid; grid-template-columns: 210px 1fr 132px; align-items: baseline; gap: 16px; }
 .session-exercise-title { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .session-exercise button { padding: 0; border: 0; background: none; color: #f2eee5; font-size: 13px; font-weight: 800; text-align: left; text-transform: capitalize; }
@@ -131,10 +133,12 @@ td { padding: 18px 14px; border-bottom: 1px solid #292929; color: #c9c6be; font-
 .input-save-button { border: 1px solid #d7ff00; background: #d7ff00; color: #0d0d0d; padding: 10px 18px; font-size: 12px; font-weight: 900; }
 .input-save-button:disabled { cursor: not-allowed; opacity: .45; }
 .input-editor-error { border: 1px solid #8f4136; color: #ff8875; padding: 12px; margin: 0 0 16px; font-size: 13px; }
-.workout-template-list { display: grid; gap: 8px; margin-top: 24px; }
-.workout-template-row { display: flex; gap: 8px; }
+.workout-picker .page-intro, .input-editor-page .page-intro { display: block; }
+.workout-template-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; margin-top: 24px; }
+.workout-template-row { display: flex; gap: 8px; min-width: 0; }
+.workout-template-row > .archive-button { flex-shrink: 0; }
 .workout-template-row .workout-template { flex: 1; }
-.workout-template { border: 1px solid #363636; background: #151515; color: #f2eee5; padding: 16px; text-align: left; }
+.workout-template { min-width: 0; border: 1px solid #363636; background: #151515; color: #f2eee5; padding: 16px; text-align: left; }
 .workout-template:hover { border-color: #d7ff00; }
 .workout-template strong, .workout-template span { display: block; }
 .workout-template span { color: #96938d; font-size: 12px; margin-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -150,8 +154,9 @@ td { padding: 18px 14px; border-bottom: 1px solid #292929; color: #c9c6be; font-
   .mobile-menu-button { display: block; margin-left: auto; border: 1px solid #414141; background: #171717; color: #f2eee5; padding: 9px 12px; font-size: 12px; font-weight: 800; }
   .mobile-menu-backdrop { display: block; position: fixed; inset: 64px 0 0; z-index: 10; border: 0; background: #00000099; }
   .site-header .mobile-nav { display: grid; position: fixed; z-index: 11; top: 76px; right: 16px; left: 16px; height: auto; border: 1px solid #414141; background: #171717; box-shadow: 0 20px 60px #000; padding: 8px; }
-  .mobile-nav button { border: 0; border-left: 2px solid transparent; background: transparent; color: #c9c6be; padding: 14px 12px; text-align: left; font-size: 15px; font-weight: 800; }
-  .mobile-nav button.active { border-left-color: #d7ff00; color: #f2eee5; }
+  .site-header .mobile-nav { gap: 4px; }
+  .site-header .mobile-nav button { border: 0; border-left: 2px solid transparent; background: transparent; color: #c9c6be; padding: 14px 12px; text-align: left; font-size: 15px; font-weight: 800; }
+  .site-header .mobile-nav button.active { border-left-color: #d7ff00; color: #f2eee5; background: #252525; }
   .header-search { display: none; }
   .page-content { padding: 42px 20px 60px; }
   .page-intro, .lift-hero { display: block; margin-bottom: 38px; }
@@ -167,8 +172,10 @@ td { padding: 18px 14px; border-bottom: 1px solid #292929; color: #c9c6be; font-
   .ledger-controls input { width: 100%; }
   .lift-archive-action { opacity: 1; }
   .session-entry { display: block; }
-  .session-header { margin-bottom: 22px; }
-  .session-exercise { display: block; padding: 10px 0; border-top: 1px solid #252525; }
+  .session-header { align-items: flex-start; flex-direction: column; padding: 16px; }
+  .session-exercises { padding: 4px 16px 16px; gap: 0; }
+  .session-exercise { display: block; padding: 16px 0; }
+  .session-exercise + .session-exercise { border-top: 1px solid #252525; }
   .session-exercise p { margin: 6px 0; }
   .session-exercise span { text-align: left; }
   .lift-actions { margin-top: 30px; }
@@ -227,4 +234,4 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 }
 .session-editor { grid-column: 1 / -1; padding: 18px; border: 1px solid #454545; min-width: 0; }
 .session-editor .workout-input { min-height: 180px; }
-.session-header .archive-button { margin-top: 12px; }
+.session-header .archive-button { flex-shrink: 0; margin: 0; }

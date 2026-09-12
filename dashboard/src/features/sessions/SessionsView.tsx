@@ -40,8 +40,11 @@ export function SessionsView({
         {sessions.map((session) => (
           <article className="session-entry" key={session.date}>
             <header className="session-header">
-              <time dateTime={session.date}>{formatWorkoutDate(session.date)}</time>
-              <span>{session.setCount} completed sets</span>
+              <div>
+                <p className="session-label">Workout session</p>
+                <time dateTime={session.date}>{formatWorkoutDate(session.date)}</time>
+                <span>{session.exercises.length} {session.exercises.length === 1 ? "exercise" : "exercises"} · {session.setCount} completed sets</span>
+              </div>
               <button className="archive-button" onClick={() => setEditing(session.date)}>Edit session</button>
             </header>
             <div className="session-exercises">

@@ -87,13 +87,23 @@ export function App() {
   };
 
   useEffect(() => {
+    if (!menuOpen) return;
+    const closeOutside = (event: PointerEvent) => {
+      const target = event.target as Element;
+      if (!target.closest("#mobile-menu, .mobile-menu-button")) setMenuOpen(false);
+    };
+    document.addEventListener("pointerdown", closeOutside);
+    return () => document.removeEventListener("pointerdown", closeOutside);
+  }, [menuOpen]);
+
+  useEffect(() => {
     const onPopState = () => setLocation(readLocationState());
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
         setSearchOpen(true);
       }
-      if (event.key === "Escape") setSearchOpen(false);
+      if (event.key === "Escape") { setSearchOpen(false); setMenuOpen(false); }
     };
     window.addEventListener("popstate", onPopState);
     window.addEventListener("keydown", onKeyDown);
