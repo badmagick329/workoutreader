@@ -12,6 +12,7 @@ import { WorkoutDraftView } from "@/features/workout/WorkoutDraftView";
 import { getProgressReport } from "@/features/training/training-analysis";
 import { useExerciseArchive } from "@/hooks/useExerciseArchive";
 import { useExercises } from "@/hooks/useExercises";
+import { warnBeforeClosingEdits } from "@/lib/saved-edits";
 import "./index.css";
 
 type View = "progress" | "sessions" | "workout" | "input";
@@ -43,6 +44,11 @@ function readLocationState(): LocationState {
 }
 
 export function App() {
+  useEffect(() => {
+    const warn = (event: BeforeUnloadEvent) => warnBeforeClosingEdits(event);
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, []);
   const { exercises, loading, error, reload } = useExercises();
   const archive = useExerciseArchive();
   const [location, setLocation] = useState<LocationState>(() => readLocationState());
@@ -142,7 +148,7 @@ export function App() {
         </button>
       </header>
 
-      {archive.error && <p className="input-editor-error" role="alert">{archive.error}</p>}
+      {archive.error && <p className="input-editor-error" role="alert">{archive.error} <button className="archive-button" onClick={() => void archive.reload()}>Retry archive settings</button></p>}
       {location.view !== "input" && location.view !== "workout" && (loading || archive.loading) ? <LoadingState /> :
       location.view !== "input" && location.view !== "workout" && error ? <main className="page-content"><p role="alert">{error}</p><button className="input-save-button" onClick={() => selectView("input")}>Repair log</button> <button className="archive-button" onClick={() => void reload()}>Retry</button></main> :
       location.lift ? (

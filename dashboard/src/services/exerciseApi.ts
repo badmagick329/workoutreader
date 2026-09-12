@@ -20,3 +20,11 @@ export const fetchWorkoutInput = () => request<Snapshot<string>>("workout-input"
 export const saveWorkoutInput = (text: string, revision: string) => request<Snapshot<string>>("workout-input", "PUT", { text }, revision);
 export const fetchExerciseSettings = () => request<Snapshot<ExerciseSettings>>("exercise-settings");
 export const saveExerciseSettings = (archivedExerciseNames: string[], revision: string) => request<Snapshot<ExerciseSettings>>("exercise-settings", "PUT", { archivedExerciseNames }, revision);
+
+/** Refresh before each single-lift change so retries preserve changes from other devices. */
+export async function setExerciseArchived(name: string, archived: boolean) {
+  const current = await fetchExerciseSettings();
+  const names = current.value.archivedExerciseNames;
+  const next = archived ? Array.from(new Set([...names, name])) : names.filter(item => item !== name);
+  return saveExerciseSettings(next, current.revision);
+}

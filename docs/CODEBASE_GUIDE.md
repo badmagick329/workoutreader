@@ -7,7 +7,7 @@ WorkoutReader keeps a plain-text training log and serves a Bun/React dashboard f
 - Start an empty workout or copy a completed session into targets.
 - Confirm a target with Done, or enter a completed set using the numeric weight/reps fields.
 - Undo moves a completed set back to targets. Finish records completed sets only.
-- The current workout autosaves after a short pause. Local edits survive navigation and refresh; Save now retries a failed save.
+- The current workout autosaves after a short pause. Unsaved edits are isolated per browser tab and survive navigation and refresh while the tab remains open; Save now retries a failed save. Closing a tab with unsaved edits shows a warning.
 - Edit log replaces the full log after confirmation. Edit session changes one date, with a preview and an undo option.
 - Data-loading failures leave navigation and Edit log available for repair. A missing input file starts with an empty log.
 

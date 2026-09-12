@@ -18,6 +18,9 @@ This project was created using `bun init` in bun v1.2.17. [Bun](https://bun.sh) 
 
 Copy `.env.example` to `.env` and set the required `HOST_PORT` value. `APP_HOST` and
 `APP_PORT` control the container listener and have defaults in `compose.yml`.
+The published port binds to `127.0.0.1` by default. The API has no authentication;
+use an authenticated reverse proxy or an SSH tunnel for remote access. Set
+`HOST_BIND_ADDRESS` only when intentionally allowing access on another host interface.
 
 ```bash
 docker compose up -d --build

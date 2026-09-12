@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { ApiError, request, type Snapshot } from "@/services/exerciseApi";
+import { SavedEdits } from "@/lib/saved-edits";
 
 const pending = new Map<string, Promise<unknown>>();
 
 /** Local edits are written immediately; server revisions prevent reconnects overwriting newer data. */
 export function useSavedEditor<T>(path: string, empty: T, autosave = false, encode: (value: T) => unknown = value => value) {
-  const key = `workoutreview:${path}`;
+  const edits = new SavedEdits<T>(path);
   const [value, setValue] = useState<T>(empty);
   const [ready, setReady] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -15,13 +16,7 @@ export function useSavedEditor<T>(path: string, empty: T, autosave = false, enco
   const current = useRef<Snapshot<T> | null>(null);
   const busy = useRef<Promise<Snapshot<T>> | null>(null);
 
-  const readLocal = (): Snapshot<T> | null => {
-    const raw = localStorage.getItem(key);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (typeof parsed?.revision !== "string" || !("value" in parsed)) throw new Error("Stored edits could not be read");
-    return parsed;
-  };
+  const readLocal = () => edits.read();
   const load = async (discardLocal = false) => {
     setError(null);
     try {
@@ -36,7 +31,7 @@ export function useSavedEditor<T>(path: string, empty: T, autosave = false, enco
         setConflict(changed);
         if (changed) setError("Saved data changed elsewhere. Copy your edits before loading the saved version.");
       } else {
-        current.current = remote; setValue(remote.value); setDirty(false); setConflict(false); localStorage.removeItem(key);
+        current.current = remote; setValue(remote.value); setDirty(false); setConflict(false); edits.clear();
       }
       setReady(true);
     } catch (cause) { setError((cause as Error).message); }
@@ -48,7 +43,7 @@ export function useSavedEditor<T>(path: string, empty: T, autosave = false, enco
     current.current = { ...current.current, value: next };
     setValue(next); setDirty(true);
     if (!conflict) setError(null);
-    try { localStorage.setItem(key, JSON.stringify(current.current)); }
+    try { edits.write(current.current); }
     catch { setError("Device storage is unavailable. Keep this page open until saved."); }
   };
   const save = async (): Promise<Snapshot<T>> => {
@@ -66,11 +61,7 @@ export function useSavedEditor<T>(path: string, empty: T, autosave = false, enco
       const unchanged = JSON.stringify(latest.value) === JSON.stringify(submitted.value);
       current.current = { value: latest.value, revision: result.revision };
       setDirty(!unchanged);
-      const cached = readLocal();
-      if (cached?.revision === submitted.revision) {
-        if (JSON.stringify(cached.value) === JSON.stringify(submitted.value)) localStorage.removeItem(key);
-        else localStorage.setItem(key, JSON.stringify({ ...cached, revision: result.revision }));
-      }
+      edits.acknowledge(submitted, result.revision);
       return result;
     } catch (cause) {
       setError((cause as Error).message);
@@ -84,9 +75,9 @@ export function useSavedEditor<T>(path: string, empty: T, autosave = false, enco
     return () => window.clearTimeout(timer);
   }, [value, ready, dirty, saving, conflict, error]);
   useEffect(() => {
-    const warn = (event: BeforeUnloadEvent) => { if (dirty && !autosave) { event.preventDefault(); event.returnValue = ""; } };
+    const warn = (event: BeforeUnloadEvent) => { if (dirty) { event.preventDefault(); event.returnValue = ""; } };
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
-  }, [dirty, autosave]);
+  }, [dirty]);
   return { value, edit, ready, dirty, saving, error, conflict, save, load, revision: () => current.current!.revision };
 }
