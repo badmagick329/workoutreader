@@ -51,15 +51,15 @@ export function CommandPalette({
           onChange={(event) => setQuery(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === "Escape") onClose();
-            if (event.key === "Enter" && matches[0]) choose(matches[0].name);
+            if (event.key === "Enter" && matches[0]) choose(matches[0].id);
           }}
           placeholder="Search every lift…"
           aria-label="Search every lift"
         />
         <div className="command-results">
           {matches.map((lift) => (
-            <button type="button" key={lift.name} onClick={() => choose(lift.name)}>
-              <span>{lift.name}</span>
+            <button type="button" key={lift.id} onClick={() => choose(lift.id)}>
+              <span>{lift.name}{lift.isBodyweight ? " · bodyweight" : ""}</span>
               <small>{lift.trend === "baseline" ? "building baseline" : `${lift.trend} · ${formatShortWorkoutDate(lift.latest.date)}`}</small>
             </button>
           ))}

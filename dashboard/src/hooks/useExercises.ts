@@ -13,7 +13,7 @@ export function useExercises() {
       .then(setExercises)
       .catch((err: unknown) => {
         console.error(err);
-        setError("Workout data could not be loaded.");
+        setError(err instanceof Error ? err.message : "Workout data could not be loaded.");
       })
       .finally(() => setLoading(false));
   }, []);

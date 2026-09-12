@@ -1,4 +1,5 @@
 import { ExerciseSetBuilder } from "./exercise-set";
+import { tryParseReps } from "./parser";
 
 export class Exercise {
   readonly date: string;
@@ -6,6 +7,7 @@ export class Exercise {
   readonly weight: number;
   readonly reps: number;
   readonly isBarbell: boolean;
+  readonly isBodyweight: boolean;
 
   static readonly barbellWeight = 20;
 
@@ -15,6 +17,7 @@ export class Exercise {
     weight: number;
     reps: number;
     isBarbell: boolean;
+    isBodyweight: boolean;
   }) {
     this.date = params.date;
     this.name = params.name;
@@ -23,6 +26,7 @@ export class Exercise {
       : params.weight;
     this.reps = params.reps;
     this.isBarbell = params.isBarbell;
+    this.isBodyweight = params.isBodyweight;
   }
 
   static fromLine(date: string, line: string): Exercise[] {
@@ -30,13 +34,13 @@ export class Exercise {
     let setBuilder = new ExerciseSetBuilder();
 
     const cleanedLines = line
-      .split(" ")
+      .split(/\s+/)
       .map((l) => l.trim())
       .filter((l) => Boolean(l));
 
     for (const word of cleanedLines) {
       setBuilder = setBuilder.parse(word);
-      if (!setBuilder.canBuild()) {
+      if (tryParseReps(word) === null || !setBuilder.canBuild()) {
         continue;
       }
 

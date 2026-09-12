@@ -46,9 +46,12 @@ export function ProgressView({
 }) {
   const report = useMemo(() => getProgressReport(exercises), [exercises]);
   const archivedNames = useMemo(() => new Set(archivedExerciseNames), [archivedExerciseNames]);
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 42);
+  const cutoffDate = `${String(cutoff.getFullYear()).slice(2)}${String(cutoff.getMonth() + 1).padStart(2, "0")}${String(cutoff.getDate()).padStart(2, "0")}`;
   const reportLifts = useMemo(
-    () => report.lifts.filter((lift) => !archivedNames.has(lift.name)),
-    [archivedNames, report.lifts],
+    () => report.lifts.filter((lift) => !archivedNames.has(lift.name) && lift.latest.date >= cutoffDate),
+    [archivedNames, report.lifts, cutoffDate],
   );
 
   const lifts = useMemo(() => {
@@ -69,7 +72,7 @@ export function ProgressView({
         <div>
           <h1>Progress</h1>
           <p className="intro-copy">
-            Same exercise only. Last 3 sessions vs previous 3.
+            Same exercise and load type. Last 3 sessions vs previous 3. Summary counts lifts trained in the last 42 days.
           </p>
         </div>
       </section>
@@ -150,10 +153,10 @@ export function ProgressView({
             <tbody>
               {lifts.map((lift) => (
                 <LiftRow
-                  key={lift.name}
+                  key={lift.id}
                   lift={lift}
                   isArchived={archivedNames.has(lift.name)}
-                  onOpen={() => onOpenLift(lift.name)}
+                  onOpen={() => onOpenLift(lift.id)}
                   onSetArchived={onSetArchived}
                 />
               ))}
@@ -191,7 +194,7 @@ function LiftRow({
     <tr className="lift-row">
       <td data-label="Lift">
         <button type="button" className="lift-name" onClick={onOpen}>
-          {lift.name}
+          {lift.name}{lift.isBodyweight ? " · bodyweight" : ""}
         </button>
       </td>
       <td data-label="Direction">

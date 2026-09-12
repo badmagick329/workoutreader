@@ -109,10 +109,6 @@ export function App() {
     setMenuOpen(false);
   };
 
-  if (loading || archive.loading) return <LoadingState />;
-  if (error) return <ErrorState message={error} />;
-  if (archive.error) return <ErrorState message={archive.error} />;
-
   return (
     <div className="app-shell">
       <header className="site-header">
@@ -136,11 +132,14 @@ export function App() {
         </button>
       </header>
 
-      {location.lift ? (
+      {archive.error && <p className="input-editor-error" role="alert">{archive.error}</p>}
+      {location.view !== "input" && location.view !== "workout" && (loading || archive.loading) ? <LoadingState /> :
+      location.view !== "input" && location.view !== "workout" && error ? <main className="page-content"><p role="alert">{error}</p><button className="input-save-button" onClick={() => selectView("input")}>Repair log</button> <button className="archive-button" onClick={() => void reload()}>Retry</button></main> :
+      location.lift ? (
         <LiftDetail
           exercises={exercises}
           name={location.lift}
-          isArchived={archive.archivedExerciseNames.includes(location.lift)}
+          isArchived={archive.archivedExerciseNames.includes(location.lift.split("::")[0]!)}
           onSetArchived={archive.setArchived}
           onBack={() => navigate({ ...location, lift: null })}
         />
@@ -165,6 +164,7 @@ export function App() {
         />
       ) : (
         <SessionsView
+          onSaved={() => void reload()}
           exercises={exercises}
           archivedExerciseNames={archive.archivedExerciseNames}
           onOpenLift={openLift}
@@ -198,10 +198,6 @@ function Navigation({
 
 function LoadingState() {
   return <div className="app-state"><span className="loading-mark" />Loading training log…</div>;
-}
-
-function ErrorState({ message }: { message: string }) {
-  return <div className="app-state error-state">{message}</div>;
 }
 
 export default App;

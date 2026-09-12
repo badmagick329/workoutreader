@@ -13,6 +13,8 @@ export type LiftSession = {
 };
 
 export type LiftSummary = {
+  id: string;
+  sameWeightRepChange: number | null;
   name: string;
   isBodyweight: boolean;
   sessions: LiftSession[];
@@ -25,6 +27,7 @@ export type LiftSummary = {
 };
 
 export type SessionExercise = {
+  id: string;
   name: string;
   sets: ExerciseData[];
   isBodyweight: boolean;
@@ -49,18 +52,20 @@ export function calculateEstimated1RM(weight: number, reps: number): number {
   return reps === 1 ? weight : weight * (1 + reps / 30);
 }
 
+export const liftId = (set: ExerciseData) => `${set.name}::${set.isBodyweight ? "bodyweight" : "loaded"}`;
+
 export function getProgressReport(exercises: ExerciseData[]): ProgressReport {
   const sessions = getWorkoutSessions(exercises);
   const byLift = new Map<string, ExerciseData[]>();
 
   for (const exercise of exercises) {
-    const existing = byLift.get(exercise.name) ?? [];
+    const existing = byLift.get(liftId(exercise)) ?? [];
     existing.push(exercise);
-    byLift.set(exercise.name, existing);
+    byLift.set(liftId(exercise), existing);
   }
 
   const lifts = Array.from(byLift.entries())
-    .map(([name, sets]) => buildLiftSummary(name, sets))
+    .map(([id, sets]) => buildLiftSummary(id, sets))
     .sort((a, b) => b.latest.date.localeCompare(a.latest.date));
 
   const byTrend = {
@@ -79,32 +84,30 @@ export function getProgressReport(exercises: ExerciseData[]): ProgressReport {
 
 export function getWorkoutSessions(exercises: ExerciseData[]): WorkoutSession[] {
   const byDate = new Map<string, ExerciseData[]>();
-  const byExerciseName = new Map<string, ExerciseData[]>();
 
   for (const exercise of exercises) {
     const existing = byDate.get(exercise.date) ?? [];
     existing.push(exercise);
     byDate.set(exercise.date, existing);
 
-    const sameExercise = byExerciseName.get(exercise.name) ?? [];
-    sameExercise.push(exercise);
-    byExerciseName.set(exercise.name, sameExercise);
   }
 
   return Array.from(byDate.entries())
     .map(([date, sets]) => {
       const byExercise = new Map<string, ExerciseData[]>();
       for (const set of sets) {
-        const existing = byExercise.get(set.name) ?? [];
+        const existing = byExercise.get(liftId(set)) ?? [];
         existing.push(set);
-        byExercise.set(set.name, existing);
+        byExercise.set(liftId(set), existing);
       }
 
       const sessionExercises = Array.from(byExercise.entries()).map(
-        ([name, exerciseSets]) => {
-          const isBodyweight = isBodyweightExercise(byExerciseName.get(name)!);
+        ([id, exerciseSets]) => {
+          const name = exerciseSets[0]!.name;
+          const isBodyweight = exerciseSets[0]!.isBodyweight;
           const performance = getSessionPerformance(exerciseSets, isBodyweight);
           return {
+            id,
             name,
             sets: exerciseSets,
             isBodyweight,
@@ -133,8 +136,9 @@ export function formatChange(changeRatio: number | null): string {
   return `${percent > 0 ? "+" : ""}${percent.toFixed(1)}%`;
 }
 
-function buildLiftSummary(name: string, sets: ExerciseData[]): LiftSummary {
-  const isBodyweight = isBodyweightExercise(sets);
+function buildLiftSummary(id: string, sets: ExerciseData[]): LiftSummary {
+  const name = sets[0]!.name;
+  const isBodyweight = sets[0]!.isBodyweight;
   const byDate = new Map<string, ExerciseData[]>();
 
   for (const set of sets) {
@@ -179,7 +183,11 @@ function buildLiftSummary(name: string, sets: ExerciseData[]): LiftSummary {
       ? (recentMedian - previousMedian) / previousMedian
       : null;
 
+  const previousAtWeight = sessions.slice(0, -1).reverse().find(session => session.sets.some(set => set.weight === latest.topSet.weight));
+  const sameWeightRepChange = previousAtWeight ? latest.topSet.reps - Math.max(...previousAtWeight.sets.filter(set => set.weight === latest.topSet.weight).map(set => set.reps)) : null;
   return {
+    id,
+    sameWeightRepChange,
     name,
     isBodyweight,
     sessions,
@@ -205,10 +213,6 @@ function getSessionPerformance(
     },
     { metric: -Infinity, topSet: sets[0]! },
   );
-}
-
-function isBodyweightExercise(exercises: ExerciseData[]): boolean {
-  return exercises.every((exercise) => exercise.weight <= 1);
 }
 
 function getTrend(changeRatio: number | null): LiftTrend {

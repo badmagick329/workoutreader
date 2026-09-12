@@ -198,3 +198,33 @@ td { padding: 18px 14px; border-bottom: 1px solid #292929; color: #c9c6be; font-
   .input-editor-actions { align-items: stretch; flex-direction: column; }
   .input-editor-actions > div { display: grid; gap: 8px; grid-template-columns: 1fr 1fr; }
 }
+
+.workout-fields { border: 0; margin: 0; padding: 0; min-width: 0; }
+.gym-workout section { margin: 28px 0; }
+.target-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: end; gap: 8px; margin: 12px 0; }
+.target-row label, .set-form label { display: grid; gap: 8px; color: #aaa7a1; font-size: 13px; min-width: 0; }
+.target-row input { width: 100%; min-width: 0; }
+.set-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.set-name { grid-column: 1 / -1; }
+.set-form input, .set-form select { width: 100%; min-width: 0; }
+.completed-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid #363636; padding: 12px 0; }
+.completed-row span { overflow-wrap: anywhere; }
+.gym-actions { position: sticky; bottom: 0; background: #0d0d0d; border-top: 1px solid #393939; padding: 14px 0 max(14px, env(safe-area-inset-bottom)); z-index: 2; }
+button:disabled { opacity: .5; cursor: not-allowed; }
+@media (max-width: 800px) {
+  input, select, textarea, .workout-input { font-size: 16px; }
+  button, .lift-table .lift-archive-action { min-height: 44px; min-width: 44px; }
+  .gym-workout { padding-top: 28px; }
+  .gym-workout .page-intro h1 { font-size: 36px; }
+  .target-row { grid-template-columns: 1fr 1fr; padding: 14px; border: 1px solid #363636; }
+  .target-row label { grid-column: 1 / -1; }
+  .gym-actions > .back-button { align-self: flex-start; }
+  .workout-date-label { max-width: 100%; }
+  .history-table { min-width: 0; }
+  .history-table thead { display: none; }
+  .history-table tr { display: grid; padding: 12px 0; border-bottom: 1px solid #363636; }
+  .history-table td { border: 0; padding: 6px; overflow-wrap: anywhere; }
+}
+.session-editor { grid-column: 1 / -1; padding: 18px; border: 1px solid #454545; min-width: 0; }
+.session-editor .workout-input { min-height: 180px; }
+.session-header .archive-button { margin-top: 12px; }

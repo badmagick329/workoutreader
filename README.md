@@ -9,7 +9,7 @@ bun install
 To run:
 
 ```bash
-bun run index.ts
+bun run src/index.ts
 ```
 
 This project was created using `bun init` in bun v1.2.17. [Bun](https://bun.sh) is a fast all-in-one JavaScript runtime.
@@ -44,3 +44,5 @@ bun run deploy
 ```
 
 Set `DEPLOY_HEALTH_URL` if the deployment should also verify a server-local URL.
+
+For the mobile workout flow, input format, saving behavior and code map, see [the codebase guide](docs/CODEBASE_GUIDE.md).

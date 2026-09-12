@@ -5,6 +5,7 @@ export type ExerciseSetParams = {
   name: string;
   weight: number;
   isBarbell: boolean;
+  isBodyweight: boolean;
   reps: number;
 };
 
@@ -24,6 +25,9 @@ export class ExerciseSetBuilder {
   private tryParseName(text: string) {
     const namePart = tryParseNamePart(text);
     if (namePart) {
+      if (this._params.weight !== undefined || this._params.reps !== undefined || /^[-+\d]/.test(namePart)) {
+        throw new Error(`Unexpected token: ${text}`);
+      }
       this._params.name = this._params.name
         ? `${this._params.name} ${namePart}`
         : namePart;
@@ -39,6 +43,7 @@ export class ExerciseSetBuilder {
         ...this._params,
         weight: weightResult.value,
         isBarbell: weightResult.isBarbell,
+        isBodyweight: false,
         reps: undefined,
       };
     }
@@ -48,10 +53,13 @@ export class ExerciseSetBuilder {
 
   private tryParseRepsAndMakeBuildable(text: string) {
     const reps = tryParseReps(text);
-    if (reps) {
+    if (reps !== null) {
+      if (reps === 0) throw new Error("Reps must be greater than zero");
+      if (!this._params.name) throw new Error("Enter an exercise name before reps");
       return new ExerciseSetBuilder({
         ...this._params,
-        weight: this._params.weight || 1,
+        weight: this._params.weight ?? 1,
+        isBodyweight: this._params.isBodyweight ?? true,
         isBarbell: this._params.isBarbell || false,
         reps,
       });
@@ -63,14 +71,14 @@ export class ExerciseSetBuilder {
   canBuild(): boolean {
     return Boolean(
       this._params.name &&
-        this._params.weight &&
+        this._params.weight !== undefined &&
         this._params.reps &&
         this._params.isBarbell !== undefined
     );
   }
 
   build() {
-    if (!this.canBuild) {
+    if (!this.canBuild()) {
       throw new Error(`ExerciseSet is not buildable: ${JSON.stringify(this)}`);
     }
     return new ExerciseSet(this._params as ExerciseSetParams);
@@ -91,6 +99,7 @@ export class ExerciseSet {
       weight: this.params.weight,
       reps: this.params.reps,
       isBarbell: this.params.isBarbell,
+      isBodyweight: this.params.isBodyweight,
     });
   }
 }

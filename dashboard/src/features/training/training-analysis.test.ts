@@ -13,10 +13,24 @@ function set(
   weight: number,
   reps: number,
 ): ExerciseData {
-  return { date, name, weight, reps, isBarbell: false } as ExerciseData;
+  return { date, name, weight, reps, isBarbell: false, isBodyweight: weight === 1 } as ExerciseData;
 }
 
 describe("training analysis", () => {
+  test("adding a weighted session does not rescore bodyweight history", () => {
+    const bodyweight = Exercise.fromLine("260101", "pull up 8");
+    const before = getProgressReport(bodyweight).lifts[0]!;
+    const after = getProgressReport([...bodyweight, ...Exercise.fromLine("260102", "pull up 10w 5")]);
+    expect(after.lifts).toHaveLength(2);
+    expect(after.lifts.find(lift => lift.isBodyweight)!.latest.metric).toBe(before.latest.metric);
+    expect(getWorkoutSessions([...bodyweight, ...Exercise.fromLine("260102", "pull up 10w 5")]).find(session => session.date === "260101")!.exercises[0]!.isBodyweight).toBe(true);
+  });
+  test("explicit light weights stay loaded and same-weight rep changes are visible", () => {
+    const sets = [...Exercise.fromLine("260101", "raise 1w 8"), ...Exercise.fromLine("260102", "raise 1w 10")];
+    const lift = getProgressReport(sets).lifts[0]!;
+    expect(lift.isBodyweight).toBe(false);
+    expect(lift.sameWeightRepChange).toBe(2);
+  });
   test("uses the set with the highest estimated 1RM for a loaded session", () => {
     const report = getProgressReport([
       set("260101", "bench press", 100, 5),

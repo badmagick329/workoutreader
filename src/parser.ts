@@ -1,5 +1,11 @@
 const repsRegex = /^\d+$/;
-const weightRegex = /^((?:\d{1,4})(?:(?:\.)(?:\d{1,4}))?)[b|w]$/;
+const weightRegex = /^((?:\d{1,4})(?:(?:\.)(?:\d{1,4}))?)[bw]$/;
+
+export function validateDate(date: string): void {
+  if (!/^\d{6}$/.test(date)) throw new Error("Use a YYMMDD date");
+  const value = new Date(Date.UTC(2000 + Number(date.slice(0, 2)), Number(date.slice(2, 4)) - 1, Number(date.slice(4))));
+  if (value.toISOString().slice(2, 10).replaceAll("-", "") !== date) throw new Error(`Invalid date: ${date}`);
+}
 
 const splitLinesByDate = (text: string) => {
   const chunks = new Map() as Map<string, string[]>;
@@ -20,14 +26,15 @@ const splitLinesByDate = (text: string) => {
       currentChunk.push(line);
     } else {
       if (currentChunk.length > 0 && date !== "") {
-        chunks.set(date, currentChunk);
+        chunks.set(date, [...(chunks.get(date) ?? []), ...currentChunk]);
       }
       date = line;
+      validateDate(date);
       currentChunk = [];
     }
   }
   if (currentChunk.length > 0 && date !== "") {
-    chunks.set(date, currentChunk);
+    chunks.set(date, [...(chunks.get(date) ?? []), ...currentChunk]);
   }
 
   return chunks;
@@ -39,7 +46,7 @@ const tryParseReps = (text: string) => {
     return null;
   }
   const value = parseInt(match[0], 10);
-  if (isNaN(value)) {
+  if (!Number.isSafeInteger(value)) {
     throw new Error(`Failed to parse reps: ${text}`);
   }
   return value;

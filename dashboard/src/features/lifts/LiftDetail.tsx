@@ -32,7 +32,7 @@ export function LiftDetail({
   onBack: () => void;
 }) {
   const lift = useMemo(
-    () => getProgressReport(exercises).lifts.find((item) => item.name === name),
+    () => getProgressReport(exercises).lifts.find((item) => item.id === name),
     [exercises, name],
   );
 
@@ -78,6 +78,7 @@ function LiftReview({
         ? null
         : Math.round(session.rollingMedian * 10) / 10,
   }));
+  const range = (items: typeof lift.sessions) => `${formatWorkoutDate(items[0]!.date)} to ${formatWorkoutDate(items.at(-1)!.date)}`;
   const trendDescription =
     lift.changeRatio === null
       ? `${6 - lift.sessions.length} more session${6 - lift.sessions.length === 1 ? "" : "s"} needed for a trend.`
@@ -90,7 +91,7 @@ function LiftReview({
       </button>
       <section className="lift-hero">
         <div>
-          <h1>{lift.name}</h1>
+          <h1>{lift.name}{lift.isBodyweight ? " · bodyweight" : ""}</h1>
           <p className="intro-copy">{lift.sessions.length} sessions · {trendDescription}</p>
         </div>
         <div className="lift-actions">
@@ -124,6 +125,8 @@ function LiftReview({
         </div>
       </section>
 
+      {lift.sessions.length >= 6 && <p className="intro-copy">Recent: {range(lift.sessions.slice(-3))}. Previous: {range(lift.sessions.slice(-6, -3))}.</p>}
+      {lift.sameWeightRepChange !== null && <p className="intro-copy">Latest top set: {lift.sameWeightRepChange > 0 ? "+" : ""}{lift.sameWeightRepChange} reps versus the previous session at {lift.isBodyweight ? "bodyweight" : `${lift.latest.topSet.weight} kg`}.</p>}
       <section className="chart-section">
         <div className="section-heading">
           <div>
