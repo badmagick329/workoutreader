@@ -15,6 +15,14 @@ export function SessionEditor({ date, onSaved, onClose }: { date: string; onSave
       await editor.save(); setUndo(before.value); setPreview(null); setMessage("Session saved"); onSaved();
     } catch (cause) { setMessage((cause as Error).message); }
   };
+  const remove = async () => {
+    if (!window.confirm("Delete this whole session from your log? The previous log is kept as a server backup.")) return;
+    try {
+      const { request } = await import("@/services/exerciseApi");
+      await request(`sessions/${date}`, "DELETE", undefined, editor.revision());
+      onSaved(); onClose();
+    } catch (cause) { setMessage((cause as Error).message); }
+  };
   return <section className="session-editor" aria-label="Edit session">
     <h2>Edit session</h2>
     <p>One exercise per line. Your edits are kept on this device.</p>
@@ -23,6 +31,7 @@ export function SessionEditor({ date, onSaved, onClose }: { date: string; onSave
     {preview && <div aria-label="Save preview"><h3>Completed sets to save</h3>{preview.map((line, index) => <p key={index}>{line}</p>)}</div>}
     <div className="input-editor-actions">
       <button className="archive-button" disabled={editor.saving} onClick={onClose}>Close</button>
+      <button className="archive-button danger-button" disabled={!editor.ready || editor.saving || editor.dirty} onClick={() => void remove()}>Delete session</button>
       {undo && <button className="archive-button" onClick={() => { editor.edit(undo); setUndo(null); setPreview(null); setMessage("Previous sets restored in editor. Preview and save to apply."); }}>Undo edit</button>}
       <button className="archive-button" onClick={() => { if (window.confirm("Discard local edits and load the saved session?")) { void editor.load(true); setPreview(null); } }}>Load saved session</button>
       {preview ? <button className="input-save-button" disabled={editor.saving || editor.conflict} onClick={() => void save()}>Save session</button> : <button className="input-save-button" disabled={!editor.ready || !editor.dirty} onClick={() => {

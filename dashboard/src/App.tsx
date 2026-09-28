@@ -13,9 +13,11 @@ import { getProgressReport } from "@/features/training/training-analysis";
 import { useExerciseArchive } from "@/hooks/useExerciseArchive";
 import { useExercises } from "@/hooks/useExercises";
 import { warnBeforeClosingEdits } from "@/lib/saved-edits";
+import { request } from "@/services/exerciseApi";
 import "./index.css";
 
-type View = "progress" | "sessions" | "workout" | "input";
+type View = "workout" | "sessions" | "progress" | "log";
+const views: View[] = ["workout", "sessions", "progress", "log"];
 type ProgressLocationState = {
   sort: ProgressSortMode;
   archiveFilter: ProgressArchiveFilter;
@@ -31,10 +33,11 @@ function readLocationState(): LocationState {
   const params = new URLSearchParams(window.location.search);
   const sort = params.get("sort");
   const archiveFilter = params.get("status");
+  const [section, lift] = window.location.pathname.split("/").filter(Boolean);
 
   return {
-    view: params.get("view") === "sessions" ? "sessions" : params.get("view") === "workout" ? "workout" : params.get("view") === "input" ? "input" : "progress",
-    lift: params.get("lift"),
+    view: section === "lifts" ? "progress" : views.find((view) => view === section) ?? "workout",
+    lift: section === "lifts" && lift ? decodeURIComponent(lift) : null,
     progress: {
       sort: sort === "recent" || sort === "name" ? sort : "signal",
       archiveFilter: archiveFilter === "archived" ? "archived" : "active",
@@ -54,6 +57,10 @@ export function App() {
   const [location, setLocation] = useState<LocationState>(() => readLocationState());
   const [searchOpen, setSearchOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [workoutActive, setWorkoutActive] = useState(false);
+  useEffect(() => {
+    void request<{ value: unknown }>("workout-draft").then((draft) => setWorkoutActive(draft.value !== null)).catch(() => {});
+  }, []);
   const lifts = useMemo(
     () =>
       getProgressReport(exercises).lifts.filter(
@@ -67,20 +74,19 @@ export function App() {
     historyMode: "push" | "replace" = "push",
   ) => {
     const params = new URLSearchParams();
-    if (next.view !== "progress") params.set("view", next.view);
-    if (next.lift) params.set("lift", next.lift);
     if (next.progress.sort !== "signal") params.set("sort", next.progress.sort);
     if (next.progress.archiveFilter !== "active") {
       params.set("status", next.progress.archiveFilter);
     }
     if (next.progress.query) params.set("q", next.progress.query);
 
-    const query = params.toString();
-    const url = query ? `?${query}` : window.location.pathname;
+    const path = next.lift ? `/lifts/${encodeURIComponent(next.lift)}` : next.view === "workout" ? "/" : `/${next.view}`;
+    const query = next.view === "progress" && !next.lift ? params.toString() : "";
+    const url = query ? `${path}?${query}` : path;
     if (historyMode === "replace") {
-      window.history.replaceState(null, "", url);
+      window.history.replaceState({ app: true }, "", url);
     } else {
-      window.history.pushState(null, "", url);
+      window.history.pushState({ app: true }, "", url);
     }
     setLocation(next);
   };
@@ -131,17 +137,17 @@ export function App() {
         <button
           className="wordmark"
           type="button"
-          onClick={() => selectView("progress")}
+          onClick={() => selectView("workout")}
         >
           <span>WORKOUT</span><strong>REVIEW</strong>
         </button>
-        <Navigation location={location} onSelect={selectView} className="desktop-nav" />
+        <Navigation location={location} workoutActive={workoutActive} onSelect={selectView} className="desktop-nav" />
         <button className="mobile-menu-button" type="button" aria-expanded={menuOpen} aria-controls="mobile-menu" onClick={() => setMenuOpen((open) => !open)}>
           Menu
         </button>
         {menuOpen && <>
           <button className="mobile-menu-backdrop" type="button" aria-label="Close menu" onClick={() => setMenuOpen(false)} />
-          <Navigation id="mobile-menu" location={location} onSelect={selectView} className="mobile-nav" />
+          <Navigation id="mobile-menu" location={location} workoutActive={workoutActive} onSelect={selectView} className="mobile-nav" />
         </>}
         <button className="header-search" type="button" onClick={() => setSearchOpen(true)}>
           Search <kbd>⌘ K</kbd>
@@ -149,20 +155,20 @@ export function App() {
       </header>
 
       {archive.error && <p className="input-editor-error" role="alert">{archive.error} <button className="archive-button" onClick={() => void archive.reload()}>Retry archive settings</button></p>}
-      {location.view !== "input" && location.view !== "workout" && (loading || archive.loading) ? <LoadingState /> :
-      location.view !== "input" && location.view !== "workout" && error ? <main className="page-content"><p role="alert">{error}</p><button className="input-save-button" onClick={() => selectView("input")}>Repair log</button> <button className="archive-button" onClick={() => void reload()}>Retry</button></main> :
+      {location.view !== "log" && location.view !== "workout" && (loading || archive.loading) ? <LoadingState /> :
+      location.view !== "log" && location.view !== "workout" && error ? <main className="page-content"><p role="alert">{error}</p><button className="input-save-button" onClick={() => selectView("log")}>Repair log</button> <button className="archive-button" onClick={() => void reload()}>Retry</button></main> :
       location.lift ? (
         <LiftDetail
           exercises={exercises}
           name={location.lift}
           isArchived={archive.archivedExerciseNames.includes(location.lift.split("::")[0]!)}
           onSetArchived={archive.setArchived}
-          onBack={() => navigate({ ...location, lift: null })}
+          onBack={() => window.history.state?.app ? window.history.back() : navigate({ ...location, lift: null })}
         />
       ) : location.view === "workout" ? (
-        <WorkoutDraftView onFinished={() => void reload()} />
-      ) : location.view === "input" ? (
-        <WorkoutInputView onSaved={() => void reload()} />
+        <WorkoutDraftView onFinished={() => void reload()} onDraftChange={setWorkoutActive} />
+      ) : location.view === "log" ? (
+        <WorkoutInputView onSaved={() => void reload()} onBack={() => selectView("sessions")} />
       ) : location.view === "progress" ? (
         <ProgressView
           exercises={exercises}
@@ -184,6 +190,7 @@ export function App() {
           exercises={exercises}
           archivedExerciseNames={archive.archivedExerciseNames}
           onOpenLift={openLift}
+          onEditLog={() => selectView("log")}
         />
       )}
 
@@ -196,17 +203,21 @@ function Navigation({
   className,
   id,
   location,
+  workoutActive,
   onSelect,
 }: {
   className: string;
   id?: string;
   location: LocationState;
+  workoutActive: boolean;
   onSelect: (view: View) => void;
 }) {
+  const current = location.view === "log" ? "sessions" : location.view;
   return <nav id={id} className={className} aria-label="Primary navigation">
-    {(["progress", "sessions", "workout", "input"] as const).map((view) => (
-      <button key={view} type="button" className={location.view === view && !location.lift ? "active" : ""} onClick={() => onSelect(view)}>
-        {view === "input" ? "Edit log" : `${view[0].toUpperCase()}${view.slice(1)}`}
+    {(["workout", "sessions", "progress"] as const).map((view) => (
+      <button key={view} type="button" className={current === view && !location.lift ? "active" : ""} onClick={() => onSelect(view)}>
+        {`${view[0].toUpperCase()}${view.slice(1)}`}
+        {view === "workout" && workoutActive && <span className="nav-live-dot" aria-label="in progress" />}
       </button>
     ))}
   </nav>;

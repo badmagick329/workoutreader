@@ -13,11 +13,13 @@ export function SessionsView({
   archivedExerciseNames,
   onOpenLift,
   onSaved,
+  onEditLog,
 }: {
   exercises: ExerciseData[];
   archivedExerciseNames: string[];
   onOpenLift: (name: string) => void;
   onSaved: () => void;
+  onEditLog: () => void;
 }) {
   const [editing, setEditing] = useState<string | null>(null);
   const sessions = useMemo(() => getWorkoutSessions(exercises), [exercises]);
@@ -33,7 +35,10 @@ export function SessionsView({
           <h1>Sessions</h1>
           <p className="intro-copy">Completed sets.</p>
         </div>
-        <p className="archive-count">{sessions.length} logged sessions</p>
+        <div className="sessions-intro-actions">
+          <p className="archive-count">{sessions.length} logged sessions</p>
+          <button className="archive-button" type="button" onClick={onEditLog}>Edit full log as text</button>
+        </div>
       </section>
 
       <section className="session-list" aria-label="Workout sessions">

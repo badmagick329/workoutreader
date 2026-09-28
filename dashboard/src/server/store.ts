@@ -1,6 +1,6 @@
 import { mkdir, rename } from "node:fs/promises";
 import { createHash } from "node:crypto";
-import { parseExercises, parseWorkouts, serializeWorkouts, validateWorkout, type Workout } from "../../../src/workout-log";
+import { parseExercises, parseWorkouts, sameExercises, serializeWorkouts, validateWorkout, type Workout } from "../../../src/workout-log";
 
 export class HttpError extends Error {
   constructor(public status: number, message: string) { super(message); }
@@ -65,6 +65,8 @@ export class WorkoutStore {
     validateWorkout(draft);
     if (!parseExercises([draft.date, ...draft.lines].join("\n")).length) throw new HttpError(400, "Record at least one completed set before finishing");
     const workouts = parseWorkouts(await this.read("input.txt"));
+    const duplicate = workouts.find(workout => sameExercises(workout.lines, draft.lines));
+    if (duplicate) throw new HttpError(409, `Identical to the workout already logged on ${duplicate.date}. Change your sets or cancel the workout.`);
     const existing = workouts.find(workout => workout.date === draft.date);
     if (existing && !conflict) return { conflict: true, existing };
     if (existing) existing.lines = conflict === "merge" ? [...existing.lines, ...draft.lines] : draft.lines;

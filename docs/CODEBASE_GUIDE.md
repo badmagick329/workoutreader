@@ -4,12 +4,12 @@ WorkoutReader keeps a plain-text training log and serves a Bun/React dashboard f
 
 ## Training flow
 
-- Start an empty workout or copy a completed session into targets.
-- Confirm a target with Done, or enter a completed set using the numeric weight/reps fields.
-- Undo moves a completed set back to targets. Finish records completed sets only.
-- The current workout autosaves after a short pause. Unsaved edits are isolated per browser tab and survive navigation and refresh while the tab remains open; Save now retries a failed save. Closing a tab with unsaved edits shows a warning.
-- Edit log replaces the full log after confirmation. Edit session changes one date, with a preview and an undo option.
-- Data-loading failures leave navigation and Edit log available for repair. A missing input file starts with an empty log.
+- The app opens on Workout (`/`). Navigation is Workout, Sessions (`/sessions`) and Progress (`/progress`); lifts live at `/lifts/<id>` and the raw log editor at `/log`, linked from Sessions.
+- Start an empty workout, or Repeat a past session to copy its lines into a new workout dated today. Nothing reaches the log until Finish.
+- A workout in progress stays open across visits and is marked in the navigation. Edit it as text; it autosaves after a short pause. Unsaved edits are isolated per browser tab and survive refresh while the tab remains open.
+- Finish adds the workout to the log. It is refused while the lines are identical to an already logged session, so an unedited copy cannot be logged twice. Cancel workout discards it without touching the log.
+- Edit session changes one date, with a preview and an undo option; Delete session removes it. Edit full log replaces the whole log after confirmation.
+- Data-loading failures leave navigation and the log editor available for repair. A missing input file starts with an empty log.
 
 ## Input format
 
@@ -39,7 +39,7 @@ Compare exact exercise names and load types separately. Loaded sets use estimate
 
 ## Persistence
 
-Run one server per data directory. `DATA_DIR` holds `input.txt`, `current-workout.json`, `next-workout.json` and `exercise-settings.json`. Writes retain the previous file as `.bak`. Mutations require the revision returned when reading; stale edits return 412 and must be resolved explicitly.
+Run one server per data directory. `DATA_DIR` holds `input.txt`, `current-workout.json` and `exercise-settings.json`. Writes retain the previous file as `.bak`. Mutations require the revision returned when reading; stale edits return 412 and must be resolved explicitly.
 
 Finishing first writes `finish-journal.json`, then updates the log and clears the draft. An interrupted finish is replayed before another operation. The client retains its finish request ID for safe retries. Back up the whole data directory, including the journal. No data migration is required.
 
@@ -47,4 +47,4 @@ Local browser recovery is not a server backup. The app does not provide a fully 
 
 ## Checks
 
-Run `bun test` from the root. Run `bun run build` from `dashboard`. Tests cover parser regressions, independent load types, stale edits, session changes, duplicate-date finish choices and finish recovery.
+Run `bun test` from the root. Run `bun run build` from `dashboard`. Tests cover parser regressions, independent load types, stale edits, session changes, duplicate-date finish choices, duplicate-copy rejection, session deletion and finish recovery.

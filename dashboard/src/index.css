@@ -219,3 +219,17 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .session-editor { grid-column: 1 / -1; padding: 18px; border: 1px solid #454545; min-width: 0; }
 .session-editor .workout-input { min-height: 180px; }
 .session-header .archive-button { flex-shrink: 0; margin: 0; }
+.nav-live-dot { display: inline-block; width: 7px; height: 7px; margin-left: 7px; border-radius: 50%; background: #d7ff00; vertical-align: middle; }
+.workout-picker > .input-save-button { min-height: 46px; padding: 12px 24px; font-size: 14px; }
+.workout-section-heading { margin: 48px 0 6px; font-size: 18px; font-weight: 900; letter-spacing: -0.02em; }
+.workout-section-copy { margin: 0; color: #96938d; font-size: 13px; }
+.workout-template-row > .archive-button { align-self: center; }
+.workout-notice { border: 1px solid #6b6420; color: #e6d86a; padding: 12px; margin: 16px 0 0; font-size: 13px; }
+.input-editor-actions > div { display: flex; gap: 8px; }
+.danger-button { border-color: #8f4136; color: #ff8875; }
+.sessions-intro-actions { display: grid; justify-items: end; gap: 12px; }
+@media (max-width: 800px) {
+  .sessions-intro-actions { justify-items: start; }
+  .workout-template-row > .archive-button { align-self: stretch; }
+  .input-editor-actions > div { display: grid; }
+}

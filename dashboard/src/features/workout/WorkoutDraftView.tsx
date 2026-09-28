@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { ApiError, request, type Snapshot, type Workout } from "@/services/exerciseApi";
 import { useSavedEditor } from "@/hooks/useSavedEditor";
+import { formatWorkoutDate, parseYYMMDD } from "@/shared/date";
+import { sameExercises } from "../../../../src/workout-log";
 
 const today = () => {
   const now = new Date();
@@ -9,11 +11,15 @@ const today = () => {
 const inputDate = (date: string) => `20${date.slice(0, 2)}-${date.slice(2, 4)}-${date.slice(4)}`;
 const logDate = (date: string) => date.replaceAll("-", "").slice(2);
 const workoutLines = (workout: Workout) => [...workout.lines, ...(workout.targets ?? [])];
+const splitLines = (text: string) => text.split("\n").map(line => line.trim()).filter(Boolean);
+const daysAgo = (date: string) => {
+  const days = Math.round((parseYYMMDD(today()).getTime() - parseYYMMDD(date).getTime()) / 86_400_000);
+  return days === 0 ? "today" : days === 1 ? "yesterday" : `${days} days ago`;
+};
 
-export function WorkoutDraftView({ onFinished }: { onFinished: () => void }) {
-  const editor = useSavedEditor<Workout | null>("workout-draft", null);
+export function WorkoutDraftView({ onFinished, onDraftChange }: { onFinished: () => void; onDraftChange: (active: boolean) => void }) {
+  const editor = useSavedEditor<Workout | null>("workout-draft", null, true);
   const [workouts, setWorkouts] = useState<Workout[]>([]);
-  const [next, setNext] = useState<Snapshot<Workout | null> | null>(null);
   const [draftText, setDraftText] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -29,38 +35,23 @@ export function WorkoutDraftView({ onFinished }: { onFinished: () => void }) {
     setDraftText(draft ? workoutLines(draft).join("\n") : "");
     syncDraftText.current = false;
   }, [draft, editor.ready]);
+  useEffect(() => { if (editor.ready) onDraftChange(!!draft); }, [draft, editor.ready]);
 
-  const loadTemplates = async () => {
-    const [history, savedNext] = await Promise.all([
-      request<Snapshot<Workout[]>>("workouts"),
-      request<Snapshot<Workout | null>>("next-workout"),
-    ]);
-    setWorkouts(history.value);
-    setNext(savedNext);
-  };
-  useEffect(() => { void loadTemplates().catch(cause => setError((cause as Error).message)); }, []);
+  const loadHistory = async () => setWorkouts((await request<Snapshot<Workout[]>>("workouts")).value);
+  useEffect(() => { void loadHistory().catch(cause => setError((cause as Error).message)); }, []);
 
   const act = async (action: () => Promise<void>) => {
     setBusy(true);
     setError(null);
     try { await action(); } catch (cause) { setError((cause as Error).message); } finally { setBusy(false); }
   };
-  const editedDraft = () => ({
-    date: draft!.date,
-    lines: draftText.split("\n").map(line => line.trim()).filter(Boolean),
-  });
-  const start = (workout?: Workout, clearNext = false) => act(async () => {
-    const nextDraft = { date: today(), lines: workout ? workoutLines(workout) : [] };
+  const editedDraft = (): Workout => ({ ...draft!, lines: splitLines(draftText), targets: undefined });
+  const start = (source?: Workout) => act(async () => {
+    const nextDraft: Workout = { date: today(), lines: source ? workoutLines(source) : [], source: source?.date };
     editor.edit(nextDraft);
     setDraftText(nextDraft.lines.join("\n"));
     await editor.save();
-    if (clearNext && next) setNext(await request("next-workout", "PUT", null, next.revision));
     setConflict(false);
-  });
-  const save = () => act(async () => {
-    if (!draft) return;
-    editor.edit(editedDraft());
-    await editor.save();
   });
   const finish = async (choice?: "merge" | "overwrite") => act(async () => {
     if (!draft && !finishAttempt) return;
@@ -86,7 +77,7 @@ export function WorkoutDraftView({ onFinished }: { onFinished: () => void }) {
         attempt.revision,
       );
     } catch (cause) {
-      if (cause instanceof ApiError && [400, 404, 412].includes(cause.status)) {
+      if (cause instanceof ApiError && [400, 404, 409, 412].includes(cause.status)) {
         setFinishAttempt(null);
         localStorage.removeItem("workoutreview:finish");
         setConflict(false);
@@ -101,11 +92,10 @@ export function WorkoutDraftView({ onFinished }: { onFinished: () => void }) {
     setDraftText("");
     await editor.load(true);
     onFinished();
-    await loadTemplates();
+    await loadHistory();
   });
-  const discard = () => act(async () => {
-    if (!window.confirm("Discard the current workout draft?")) return;
-    if (editor.saving) return;
+  const cancel = () => act(async () => {
+    if (!window.confirm("Cancel this workout? Nothing will be added to your log.")) return;
     await request("workout-draft", "DELETE", undefined, editor.revision());
     setDraftText("");
     setConflict(false);
@@ -123,30 +113,56 @@ export function WorkoutDraftView({ onFinished }: { onFinished: () => void }) {
   </>;
 
   if (!editor.ready) return <main className="page-content">{warning}<p>Loading workout…</p><button className="archive-button" onClick={() => void editor.load()}>Retry</button></main>;
+
+  const last = workouts[0];
   if (!draft) return <main className="page-content workout-picker">
-    <div className="page-intro"><div><p className="eyebrow">New workout</p><h1>Start from a previous session</h1><p className="intro-copy">Choose a past workout to copy its exercises, or begin empty.</p></div></div>
+    <div className="page-intro"><div>
+      <p className="eyebrow">Workout</p>
+      <h1>Log a workout</h1>
+      <p className="intro-copy">{last ? <>Last logged: <strong>{formatWorkoutDate(last.date)}</strong> · {daysAgo(last.date)}</> : "Nothing logged yet."}</p>
+    </div></div>
     {warning}
     {finishAttempt && <button className="input-save-button" disabled={busy} onClick={() => void finish()}>Check previous finish</button>}
-    {next?.value && <button className="input-save-button" disabled={busy || !!finishAttempt} onClick={() => void start(next.value!, true)}>Start next workout: {workoutLines(next.value)[0] ?? "saved template"}</button>}
-    <button className="archive-button" disabled={busy || !!finishAttempt} onClick={() => void start()}>Start empty workout</button>
-    <div className="workout-template-list">
-      {workouts.map((workout, index) => <div className="workout-template-row" key={`${workout.date}-${index}`}>
-        <button className="workout-template" disabled={busy || !!finishAttempt} onClick={() => void start(workout)}><strong>{inputDate(workout.date)}</strong><span>{workoutLines(workout).join(" · ") || "No exercises"}</span></button>
-        <button className="archive-button" disabled={busy || !next || !!finishAttempt} onClick={() => void act(async () => { setNext(await request("next-workout", "PUT", workout, next!.revision)); })}>Set as next</button>
-      </div>)}
-    </div>
+    <button className="input-save-button" disabled={busy || !!finishAttempt} onClick={() => void start()}>Start empty workout</button>
+    {workouts.length > 0 && <section aria-labelledby="repeat-heading">
+      <h2 id="repeat-heading" className="workout-section-heading">Or repeat a past workout</h2>
+      <p className="workout-section-copy">Copies its exercises into a new workout for today. Nothing is logged until you finish.</p>
+      <div className="workout-template-list">
+        {workouts.map((workout, index) => <div className="workout-template-row" key={`${workout.date}-${index}`}>
+          <div className="workout-template"><strong>{formatWorkoutDate(workout.date)}</strong><span>{workoutLines(workout).join(" · ") || "No exercises"}</span></div>
+          <button className="archive-button" disabled={busy || !!finishAttempt} onClick={() => void start(workout)}>Repeat</button>
+        </div>)}
+      </div>
+    </section>}
   </main>;
 
+  const lines = splitLines(draftText);
+  const duplicate = workouts.find(workout => sameExercises(workout.lines, lines));
+  const locked = busy || !!finishAttempt;
   return <main className="page-content input-editor-page">
-    <div className="page-intro"><div><p className="eyebrow">Current workout</p><h1>Train, then finish</h1><p className="intro-copy">Save keeps this as a draft. Finish adds it to your completed log.</p></div></div>
+    <div className="page-intro"><div>
+      <p className="eyebrow">Workout in progress</p>
+      <h1>Log your sets</h1>
+      <p className="intro-copy">
+        {draft.source ? <>Copied from {formatWorkoutDate(draft.source)}. Edit it to match what you do today. </> : null}
+        Nothing is added to your log until you finish.
+      </p>
+    </div></div>
     {warning}
-    <label className="workout-date-label">Date <input type="date" value={inputDate(draft.date)} onChange={event => editor.edit({ ...editedDraft(), date: logDate(event.target.value) })} disabled={busy || editor.saving || !!finishAttempt} /></label>
+    <label className="workout-date-label">Date <input type="date" value={inputDate(draft.date)} onChange={event => editor.edit({ ...editedDraft(), date: logDate(event.target.value) })} disabled={locked} /></label>
     <textarea className="workout-input" value={draftText} onChange={event => {
       setDraftText(event.target.value);
-      editor.edit({ date: draft.date, lines: event.target.value.split("\n").map(line => line.trim()).filter(Boolean) });
-    }} disabled={busy || editor.saving || !!finishAttempt} aria-label="Current workout exercises" spellCheck={false} />
-    {conflict && <div className="input-editor-error">A completed workout already exists for this date. <button type="button" onClick={() => void finish("merge")}>Merge</button> <button type="button" onClick={() => void finish("overwrite")}>Overwrite</button></div>}
+      editor.edit({ ...draft, lines: splitLines(event.target.value), targets: undefined });
+    }} disabled={locked} aria-label="Current workout exercises" spellCheck={false} placeholder={"squat 30b 6 6\npull up 8 7"} />
+    {duplicate && <p className="workout-notice" role="status">Identical to the workout logged on {formatWorkoutDate(duplicate.date)}. Change your sets before finishing.</p>}
+    {conflict && <div className="input-editor-error">A workout is already logged on this date. <button type="button" onClick={() => void finish("merge")}>Add to it</button> <button type="button" onClick={() => void finish("overwrite")}>Replace it</button></div>}
     {finishAttempt && <p>Finish is awaiting confirmation. Retry to check it safely.</p>}
-    <div className="input-editor-actions"><button type="button" className="back-button" onClick={() => void discard()} disabled={busy || editor.saving || !!finishAttempt}>Discard draft</button><div><button type="button" className="archive-button" onClick={() => void save()} disabled={busy || editor.saving || !!finishAttempt}>Save draft</button> <button type="button" className="input-save-button" onClick={() => void finish()} disabled={busy || editor.saving || !!finishAttempt}>{busy ? "Saving…" : finishAttempt ? "Retry finish" : "Finish workout"}</button></div></div>
+    <div className="input-editor-actions">
+      <span>{editor.saving ? "Saving draft…" : editor.dirty ? "Unsaved changes" : "Draft saved"}</span>
+      <div>
+        <button type="button" className="archive-button" onClick={() => void cancel()} disabled={locked || editor.saving}>Cancel workout</button>
+        <button type="button" className="input-save-button" onClick={() => void finish()} disabled={busy || (!finishAttempt && (!!duplicate || !lines.length))}>{busy ? "Saving…" : finishAttempt ? "Retry finish" : "Finish · add to log"}</button>
+      </div>
+    </div>
   </main>;
 }

@@ -36,6 +36,10 @@ export function createApi(directory: string) {
         const saved = await store.saveLog(serializeWorkouts(workouts), expected);
         return json({ value: session, revision: saved.revision });
       }
+      if (method === "DELETE") {
+        const saved = await store.saveLog(serializeWorkouts(workouts.filter(workout => workout !== session)), expected);
+        return json({ revision: saved.revision });
+      }
     }
     if (path === "/api/workout-input") {
       if (method === "GET") return json(await store.snapshot("input.txt", text => text));
@@ -50,8 +54,8 @@ export function createApi(directory: string) {
       if (typeof body?.id !== "string" || !body.id || ![undefined, "merge", "overwrite"].includes(body.conflict)) throw new HttpError(400, "Invalid finish request");
       return json(await store.finish(body.id, expected, body.logRevision, body.conflict));
     }
-    const file = path === "/api/workout-draft" ? "current-workout.json" : path === "/api/next-workout" ? "next-workout.json" : null;
-    if (file) {
+    if (path === "/api/workout-draft") {
+      const file = "current-workout.json";
       const decode = (text: string) => { if (!text.trim()) return null; const workout = JSON.parse(text); validateWorkout(workout); return workout; };
       if (method === "GET") return json(await store.snapshot(file, decode));
       if (method === "PUT" || method === "DELETE") {

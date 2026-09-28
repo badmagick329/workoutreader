@@ -1,7 +1,8 @@
 import { Exercise } from "./exercise";
 import { splitLinesByDate, validateDate } from "./parser";
 
-export type Workout = { date: string; lines: string[]; targets?: string[] };
+/** `source` is the logged date a draft was copied from, so the UI can say where it came from. */
+export type Workout = { date: string; lines: string[]; targets?: string[]; source?: string };
 
 /** Storage and analytics share date grouping so repeated dates cannot hide sets. */
 export function parseWorkouts(text: string): Workout[] {
@@ -28,6 +29,10 @@ export function validateWorkout(value: unknown): asserts value is Workout {
   const workout = value as Workout;
   if (typeof workout.date !== "string") throw new Error("Workout date is required");
   validateDate(workout.date);
+  if (workout.source !== undefined) {
+    if (typeof workout.source !== "string") throw new Error("Workout source must be a date");
+    validateDate(workout.source);
+  }
   for (const lines of [workout.lines, workout.targets ?? []]) {
     if (!Array.isArray(lines) || lines.some(line => typeof line !== "string" || /[\r\n]/.test(line) || /^\d{6}$/.test(line.trim()))) throw new Error("Exercises must be individual text lines");
     parseExercises([workout.date, ...lines].join("\n"));
@@ -36,4 +41,10 @@ export function validateWorkout(value: unknown): asserts value is Workout {
 
 export function serializeWorkouts(workouts: Workout[]): string {
   return workouts.map(workout => [workout.date, ...workout.lines].join("\n")).join("\n\n") + "\n";
+}
+
+/** Finishing an unedited copy of a logged workout silently duplicates it, so both client and server compare entries by content. */
+export function sameExercises(a: string[], b: string[]): boolean {
+  const normalize = (lines: string[]) => lines.map(line => line.trim().replace(/\s+/g, " ").toLowerCase()).filter(Boolean).join("\n");
+  return normalize(a) === normalize(b);
 }

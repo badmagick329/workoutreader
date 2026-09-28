@@ -51,6 +51,18 @@ describe("safe workout storage", () => {
     expect((await (await call(api, "workout-draft/finish", "POST", { ...body, conflict: "merge" }, draft.revision)).json()).conflict).toBe(false);
     expect((await (await call(api, "exercises")).json())).toHaveLength(2);
   }));
+  test("finishing an unedited copy of a logged workout is rejected", () => scenario(async api => {
+    const log = await (await call(api, "workout-input", "PUT", { text: "260101\nsquat 30b 5" }, revision(""))).json();
+    const draft = await (await call(api, "workout-draft", "PUT", { date: "260105", lines: [" Squat  30b 5"], source: "260101" }, revision(""))).json();
+    expect((await call(api, "workout-draft/finish", "POST", { id: "copy", logRevision: log.revision }, draft.revision)).status).toBe(409);
+    expect((await (await call(api, "exercises")).json())).toHaveLength(1);
+  }));
+  test("deleting a session keeps other dates", () => scenario(async api => {
+    await call(api, "workout-input", "PUT", { text: "260101\nsquat 30b 5\n260102\nbench 20b 8" }, revision(""));
+    const session = await (await call(api, "sessions/260102")).json();
+    expect((await call(api, "sessions/260102", "DELETE", undefined, session.revision)).status).toBe(200);
+    expect((await (await call(api, "workout-input")).json()).value).toBe("260101\nsquat 30b 5\n");
+  }));
   test("retains the previous log and serializes competing writes", () => scenario(async (api, dir) => {
     const responses = await Promise.all(["squat", "bench"].map(name => call(api, "workout-input", "PUT", { text: `260101\n${name} 20b 5` }, revision(""))));
     expect(responses.map(response => response.status).sort()).toEqual([200, 412]);
