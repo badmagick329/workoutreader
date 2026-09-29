@@ -5,9 +5,11 @@ WorkoutReader keeps a plain-text training log and serves a Bun/React dashboard f
 ## Training flow
 
 - The app opens on Workout (`/`). Navigation is Workout, Sessions (`/sessions`) and Progress (`/progress`); lifts live at `/lifts/<id>` and the raw log editor at `/log`, linked from Sessions.
-- Start an empty workout, or Repeat a past session to copy its lines into a new workout dated today. Nothing reaches the log until Finish.
+- Start an empty workout, or Repeat one of the last five sessions (all on request) to copy its lines into a new workout dated today. Nothing reaches the log until Finish.
 - A workout in progress stays open across visits and is marked in the navigation. Edit it as text; it autosaves after a short pause. Unsaved edits are isolated per browser tab and survive refresh while the tab remains open.
+- While editing, each line is previewed as parsed next to the previous session of that lift (`dashboard/src/features/workout/line-preview.ts`), so typos show before Finish. Finish stays pinned to the bottom of the screen.
 - Finish adds the workout to the log. It is refused while the lines are identical to an already logged session, so an unedited copy cannot be logged twice. Cancel workout discards it without touching the log.
+- The app is installable from the browser (web manifest and icons in `dashboard/src`). Archiving a lift is done from its detail page.
 - Edit session changes one date, with a preview and an undo option; Delete session removes it. Edit full log replaces the whole log after confirmation.
 - Data-loading failures leave navigation and the log editor available for repair. A missing input file starts with an empty log.
 

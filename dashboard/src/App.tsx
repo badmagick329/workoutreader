@@ -56,7 +56,6 @@ export function App() {
   const archive = useExerciseArchive();
   const [location, setLocation] = useState<LocationState>(() => readLocationState());
   const [searchOpen, setSearchOpen] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [workoutActive, setWorkoutActive] = useState(false);
   useEffect(() => {
     void request<{ value: unknown }>("workout-draft").then((draft) => setWorkoutActive(draft.value !== null)).catch(() => {});
@@ -99,23 +98,13 @@ export function App() {
   };
 
   useEffect(() => {
-    if (!menuOpen) return;
-    const closeOutside = (event: PointerEvent) => {
-      const target = event.target as Element;
-      if (!target.closest("#mobile-menu, .mobile-menu-button")) setMenuOpen(false);
-    };
-    document.addEventListener("pointerdown", closeOutside);
-    return () => document.removeEventListener("pointerdown", closeOutside);
-  }, [menuOpen]);
-
-  useEffect(() => {
     const onPopState = () => setLocation(readLocationState());
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
         setSearchOpen(true);
       }
-      if (event.key === "Escape") { setSearchOpen(false); setMenuOpen(false); }
+      if (event.key === "Escape") setSearchOpen(false);
     };
     window.addEventListener("popstate", onPopState);
     window.addEventListener("keydown", onKeyDown);
@@ -128,7 +117,6 @@ export function App() {
   const openLift = (name: string) => navigate({ ...location, lift: name });
   const selectView = (view: View) => {
     navigate({ ...location, view, lift: null });
-    setMenuOpen(false);
   };
 
   return (
@@ -141,14 +129,7 @@ export function App() {
         >
           <span>WORKOUT</span><strong>REVIEW</strong>
         </button>
-        <Navigation location={location} workoutActive={workoutActive} onSelect={selectView} className="desktop-nav" />
-        <button className="mobile-menu-button" type="button" aria-expanded={menuOpen} aria-controls="mobile-menu" onClick={() => setMenuOpen((open) => !open)}>
-          Menu
-        </button>
-        {menuOpen && <>
-          <button className="mobile-menu-backdrop" type="button" aria-label="Close menu" onClick={() => setMenuOpen(false)} />
-          <Navigation id="mobile-menu" location={location} workoutActive={workoutActive} onSelect={selectView} className="mobile-nav" />
-        </>}
+        <Navigation location={location} workoutActive={workoutActive} onSelect={selectView} />
         <button className="header-search" type="button" onClick={() => setSearchOpen(true)}>
           Search <kbd>⌘ K</kbd>
         </button>
@@ -166,7 +147,7 @@ export function App() {
           onBack={() => window.history.state?.app ? window.history.back() : navigate({ ...location, lift: null })}
         />
       ) : location.view === "workout" ? (
-        <WorkoutDraftView onFinished={() => void reload()} onDraftChange={setWorkoutActive} />
+        <WorkoutDraftView exercises={exercises} onFinished={() => void reload()} onDraftChange={setWorkoutActive} />
       ) : location.view === "log" ? (
         <WorkoutInputView onSaved={() => void reload()} onBack={() => selectView("sessions")} />
       ) : location.view === "progress" ? (
@@ -177,7 +158,6 @@ export function App() {
           archiveFilter={location.progress.archiveFilter}
           query={location.progress.query}
           onOpenLift={openLift}
-          onSetArchived={archive.setArchived}
           onChangeSort={(sort) => updateProgressLocation({ sort })}
           onChangeArchiveFilter={(archiveFilter) =>
             updateProgressLocation({ archiveFilter })
@@ -200,20 +180,16 @@ export function App() {
 }
 
 function Navigation({
-  className,
-  id,
   location,
   workoutActive,
   onSelect,
 }: {
-  className: string;
-  id?: string;
   location: LocationState;
   workoutActive: boolean;
   onSelect: (view: View) => void;
 }) {
   const current = location.view === "log" ? "sessions" : location.view;
-  return <nav id={id} className={className} aria-label="Primary navigation">
+  return <nav className="primary-nav" aria-label="Primary navigation">
     {(["workout", "sessions", "progress"] as const).map((view) => (
       <button key={view} type="button" className={current === view && !location.lift ? "active" : ""} onClick={() => onSelect(view)}>
         {`${view[0].toUpperCase()}${view.slice(1)}`}

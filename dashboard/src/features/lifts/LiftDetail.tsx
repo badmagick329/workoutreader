@@ -6,7 +6,7 @@ import {
   getProgressReport,
   type LiftSummary,
 } from "@/features/training/training-analysis";
-import { formatWorkoutDate } from "@/shared/date";
+import { formatWorkoutDate, parseYYMMDD } from "@/shared/date";
 import type { ExerciseData } from "@/shared/workout-types";
 import {
   CartesianGrid,
@@ -17,6 +17,8 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+
+const trendLabels = { improving: "Moving up", holding: "Holding", declining: "Moving down", baseline: "Too early" } as const;
 
 export function LiftDetail({
   exercises,
@@ -42,7 +44,7 @@ export function LiftDetail({
         <p className="eyebrow">Lift unavailable</p>
         <h1>That lift is not in this log.</h1>
         <button className="back-button" type="button" onClick={onBack}>
-          Back to review
+          Back to progress
         </button>
       </main>
     );
@@ -69,7 +71,7 @@ function LiftReview({
   onSetArchived: (name: string, archived: boolean) => Promise<void>;
   onBack: () => void;
 }) {
-  const unit = lift.isBodyweight ? "reps" : "kg e1RM";
+  const unit = lift.isBodyweight ? "reps" : "kg est. 1RM";
   const chartData = lift.sessions.map((session) => ({
     date: session.date,
     performance: Math.round(session.metric * 10) / 10,
@@ -81,13 +83,13 @@ function LiftReview({
   const range = (items: typeof lift.sessions) => `${formatWorkoutDate(items[0]!.date)} to ${formatWorkoutDate(items.at(-1)!.date)}`;
   const trendDescription =
     lift.changeRatio === null
-      ? `${6 - lift.sessions.length} more session${6 - lift.sessions.length === 1 ? "" : "s"} needed for a trend.`
+      ? `${6 - lift.sessions.length} more session${6 - lift.sessions.length === 1 ? "" : "s"} until a trend is shown.`
       : `Last 3: ${formatMetric(lift.recentMedian!, lift.isBodyweight)} · Previous 3: ${formatMetric(lift.previousMedian!, lift.isBodyweight)}.`;
 
   return (
     <main className="page-content lift-detail">
       <button className="back-button" type="button" onClick={onBack}>
-        ← Back to review
+        ← Back to progress
       </button>
       <section className="lift-hero">
         <div>
@@ -112,8 +114,8 @@ function LiftReview({
 
       <section className="detail-metrics" aria-label="Lift trend evidence">
         <div>
-          <span>Current direction</span>
-          <strong className={`trend-${lift.trend}`}>{lift.trend === "baseline" ? "Building baseline" : lift.trend}</strong>
+          <span>Trend</span>
+          <strong className={`trend-${lift.trend}`}>{trendLabels[lift.trend]}</strong>
         </div>
         <div>
           <span>Change</span>
@@ -132,7 +134,7 @@ function LiftReview({
           <div>
             <h2>Performance</h2>
           </div>
-          <p className="chart-key"><i className="actual-key" />Actual <i className="median-key" />3-session median</p>
+          <p className="chart-key"><i className="actual-key" />Actual <i className="median-key" />Median of last 3</p>
         </div>
         <div className="performance-chart">
           <ResponsiveContainer width="100%" height="100%">
@@ -142,7 +144,7 @@ function LiftReview({
                 dataKey="date"
                 stroke="#777"
                 tick={{ fill: "#8f8f8f", fontSize: 11 }}
-                tickFormatter={(value) => value.slice(2)}
+                tickFormatter={(value: string) => parseYYMMDD(value).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
                 minTickGap={28}
               />
               <YAxis
@@ -156,7 +158,7 @@ function LiftReview({
                 labelFormatter={(value) => formatWorkoutDate(String(value))}
                 formatter={(value: number, key: string) => [
                   `${value} ${unit}`,
-                  key === "median" ? "3-session median" : "Actual",
+                  key === "median" ? "Median of last 3" : "Actual",
                 ]}
               />
               <Line
@@ -192,7 +194,7 @@ function LiftReview({
                 <th>Date</th>
                 <th>Completed sets</th>
                 <th>Top set</th>
-                <th>Session performance</th>
+                <th>{lift.isBodyweight ? "Best reps" : "Est. 1RM"}</th>
               </tr>
             </thead>
             <tbody>

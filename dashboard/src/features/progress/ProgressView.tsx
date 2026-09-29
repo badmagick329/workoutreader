@@ -1,4 +1,3 @@
-import { Archive, RotateCcw } from "lucide-react";
 import { useMemo } from "react";
 import {
   formatChange,
@@ -15,10 +14,10 @@ export type ProgressSortMode = "signal" | "recent" | "name";
 export type ProgressArchiveFilter = "active" | "archived";
 
 const trendCopy: Record<LiftTrend, { label: string; description: string }> = {
-  improving: { label: "Moving up", description: "last 3 vs previous 3" },
-  holding: { label: "Holding", description: "last 3 vs previous 3" },
-  declining: { label: "Moving down", description: "last 3 vs previous 3" },
-  baseline: { label: "Building baseline", description: "under 6 sessions" },
+  improving: { label: "Moving up", description: "lifts, last 6 weeks" },
+  holding: { label: "Holding", description: "lifts, last 6 weeks" },
+  declining: { label: "Moving down", description: "lifts, last 6 weeks" },
+  baseline: { label: "Too early", description: "need 6 sessions" },
 };
 
 export function ProgressView({
@@ -28,7 +27,6 @@ export function ProgressView({
   archiveFilter,
   query,
   onOpenLift,
-  onSetArchived,
   onChangeSort,
   onChangeArchiveFilter,
   onChangeQuery,
@@ -39,7 +37,6 @@ export function ProgressView({
   archiveFilter: ProgressArchiveFilter;
   query: string;
   onOpenLift: (name: string) => void;
-  onSetArchived: (name: string, archived: boolean) => Promise<void>;
   onChangeSort: (sort: ProgressSortMode) => void;
   onChangeArchiveFilter: (filter: ProgressArchiveFilter) => void;
   onChangeQuery: (query: string) => void;
@@ -72,24 +69,19 @@ export function ProgressView({
         <div>
           <h1>Progress</h1>
           <p className="intro-copy">
-            Same exercise and load type. Last 3 sessions vs previous 3. Summary counts lifts trained in the last 42 days.
+            Each lift's last 3 sessions compared with the 3 before. Weighted and bodyweight versions are tracked separately.
           </p>
         </div>
       </section>
 
       <section className="trend-strip" aria-label="Progress summary">
-        {(["improving", "holding", "declining"] as const).map((trend) => (
+        {(["improving", "holding", "declining", "baseline"] as const).map((trend) => (
           <div className={`trend-summary trend-${trend}`} key={trend}>
             <span>{trendCopy[trend].label}</span>
             <strong>{reportLifts.filter((lift) => lift.trend === trend).length}</strong>
             <small>{trendCopy[trend].description}</small>
           </div>
         ))}
-        <div className="trend-summary trend-baseline">
-          <span>Building baseline</span>
-          <strong>{reportLifts.filter((lift) => lift.trend === "baseline").length}</strong>
-          <small>not judged yet</small>
-        </div>
       </section>
 
       <section className="ledger-section">
@@ -115,7 +107,7 @@ export function ProgressView({
               value={sortMode}
               onChange={(event) => onChangeSort(event.target.value as ProgressSortMode)}
             >
-              <option value="signal">Sort: signal</option>
+              <option value="signal">Sort: trend</option>
               <option value="recent">Sort: recent</option>
               <option value="name">Sort: name</option>
             </select>
@@ -143,11 +135,10 @@ export function ProgressView({
             <thead>
               <tr>
                 <th>Lift</th>
-                <th>Direction</th>
-                <th>Evidence</th>
+                <th>Trend</th>
+                <th>History</th>
                 <th>Latest top set</th>
                 <th>Last trained</th>
-                <th aria-label="Archive action" />
               </tr>
             </thead>
             <tbody>
@@ -155,9 +146,7 @@ export function ProgressView({
                 <LiftRow
                   key={lift.id}
                   lift={lift}
-                  isArchived={archivedNames.has(lift.name)}
                   onOpen={() => onOpenLift(lift.id)}
-                  onSetArchived={onSetArchived}
                 />
               ))}
             </tbody>
@@ -175,20 +164,16 @@ export function ProgressView({
 
 function LiftRow({
   lift,
-  isArchived,
   onOpen,
-  onSetArchived,
 }: {
   lift: LiftSummary;
-  isArchived: boolean;
   onOpen: () => void;
-  onSetArchived: (name: string, archived: boolean) => Promise<void>;
 }) {
   const copy = trendCopy[lift.trend];
   const evidence =
     lift.recentMedian !== null && lift.previousMedian !== null
       ? `${formatMetric(lift.recentMedian, lift.isBodyweight)} vs ${formatMetric(lift.previousMedian, lift.isBodyweight)}`
-      : `${lift.sessions.length} of 6 sessions`;
+      : `${lift.sessions.length} of 6 sessions so far`;
 
   return (
     <tr className="lift-row">
@@ -197,27 +182,32 @@ function LiftRow({
           {lift.name}{lift.isBodyweight ? " · bodyweight" : ""}
         </button>
       </td>
-      <td data-label="Direction">
+      <td data-label="Trend">
         <span className={`trend-label trend-${lift.trend}`}>{copy.label}</span>
         {lift.changeRatio !== null && (
           <span className="change-value">{formatChange(lift.changeRatio)}</span>
         )}
       </td>
-      <td className="evidence-cell" data-label="Evidence">{evidence}</td>
+      <td className={`history-cell trend-${lift.trend}`} data-label="History" title={evidence}>
+        <Sparkline values={lift.sessions.slice(-12).map((session) => session.metric)} />
+      </td>
       <td data-label="Latest top set">{formatSet(lift.latest.topSet, lift.isBodyweight)}</td>
       <td data-label="Last trained">{formatShortWorkoutDate(lift.latest.date)}</td>
-      <td className="lift-action-cell" data-label="Actions">
-        <button
-          className="lift-archive-action"
-          type="button"
-          aria-label={`${isArchived ? "Restore" : "Archive"} ${lift.name}`}
-          title={isArchived ? "Restore lift" : "Archive lift"}
-          onClick={() => void onSetArchived(lift.name, !isArchived)}
-        >
-          {isArchived ? <RotateCcw size={15} /> : <Archive size={15} />}
-        </button>
-      </td>
     </tr>
+  );
+}
+
+function Sparkline({ values }: { values: number[] }) {
+  if (values.length < 2) return <span className="sparkline-empty">—</span>;
+  const min = Math.min(...values);
+  const span = Math.max(...values) - min || 1;
+  const points = values
+    .map((value, index) => `${(index / (values.length - 1)) * 96 + 2},${22 - ((value - min) / span) * 18}`)
+    .join(" ");
+  return (
+    <svg className="sparkline" viewBox="0 0 100 24" preserveAspectRatio="none" aria-hidden="true">
+      <polyline points={points} fill="none" stroke="currentColor" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
+    </svg>
   );
 }
 

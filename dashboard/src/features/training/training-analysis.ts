@@ -127,7 +127,7 @@ export function formatSet(set: ExerciseData, isBodyweight: boolean): string {
 }
 
 export function formatMetric(value: number, isBodyweight: boolean): string {
-  return isBodyweight ? `${Math.round(value)} reps` : `${Math.round(value)} kg e1RM`;
+  return isBodyweight ? `${Math.round(value)} reps` : `${Math.round(value)} kg est. 1RM`;
 }
 
 export function formatChange(changeRatio: number | null): string {
