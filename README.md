@@ -1,18 +1,19 @@
 # workoutreader
 
-To install dependencies:
+A plain-text strength-training log (`data/input.txt`) with a Bun/React dashboard for logging workouts on a phone and reviewing progress.
+
+## Local development
 
 ```bash
 bun install
+cd dashboard
+bun install
+bun dev
 ```
 
-To run:
+The dashboard serves on `http://127.0.0.1:3000` and reads `../data` relative to `dashboard`. Set `DATA_DIR`, `APP_HOST` or `APP_PORT` to override. Run tests with `bun test` from the root and a production build with `bun run build` from `dashboard`.
 
-```bash
-bun run src/index.ts
-```
-
-This project was created using `bun init` in bun v1.2.17. [Bun](https://bun.sh) is a fast all-in-one JavaScript runtime.
+`bun run src/index.ts` from the root prints every parsed set and exports them to `data/output.csv`.
 
 ## Docker deployment
 

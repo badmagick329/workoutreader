@@ -1,21 +1,9 @@
-# bun-react-tailwind-shadcn-template
+# dashboard
 
-To install dependencies:
-
-```bash
-bun install
-```
-
-To start a development server:
+Bun server and React UI for WorkoutReader. See the [root README](../README.md) for running and deploying, and the [codebase guide](../docs/CODEBASE_GUIDE.md) for the workout flow and code map.
 
 ```bash
-bun dev
+bun dev     # hot-reloading dev server
+bun start   # production mode
+bun run build
 ```
-
-To run for production:
-
-```bash
-bun start
-```
-
-This project was created using `bun init` in bun v1.2.17. [Bun](https://bun.sh) is a fast all-in-one JavaScript runtime.
