@@ -22,7 +22,7 @@ row 25w 10 8
 pull up 8 7
 ```
 
-`b` means plates plus the 20 kg bar; `w` means the stated weight in kg. No weight token means bodyweight. Explicit weights, including 1w, remain loaded sets. Repeated dates combine into one session. Invalid dates and unexpected tokens are rejected. Incomplete exercise names or weights produce no completed sets and can be used as draft targets.
+`b` means plates plus the 20 kg bar; `w` means the stated weight in kg. No weight token means bodyweight. Explicit weights, including 1w, remain loaded sets. Repeated dates combine into one session. Invalid dates and unexpected tokens are rejected. Incomplete exercise names or weights produce no completed sets, so they can stay in a workout in progress as reminders.
 
 ## Source of truth
 
